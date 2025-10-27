@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -8,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import type { YouTubeVideo } from '../../contracts/models';
-import type { VideosStackParamList } from '../../App';
+import type { VideosStackParamList } from '../../navigation/types';
 import { useVideoStore } from '../../state/video.store';
 import { useNotesStore } from '../../state/notes.store';
 import { useBankStore } from '../../state/bank.store';
@@ -54,9 +55,9 @@ const VideoDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [error, setError] = useState<string | undefined>();
 
   useEffect(() => {
-    void loadSavedVideos();
-    void loadNotes();
-    void loadBank();
+    loadSavedVideos().catch(() => undefined);
+    loadNotes().catch(() => undefined);
+    loadBank().catch(() => undefined);
   }, [loadSavedVideos, loadNotes, loadBank]);
 
   useEffect(() => {
@@ -76,7 +77,7 @@ const VideoDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       }
     };
 
-    void attempt();
+    attempt().catch(() => undefined);
   }, [video, videoId]);
 
   useEffect(() => {
@@ -145,17 +146,13 @@ const VideoDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   Linked term: {vocabLookup[note.vocabItemId] ?? 'Unknown'}
                 </Text>
                 <TouchableOpacity
-                  onPress={() =>
-                    navigation
-                      .getParent()
-                      ?.navigate(
-                        'Translate' as never,
-                        {
-                          screen: 'BankDetail',
-                          params: { itemId: note.vocabItemId },
-                        } as never,
-                      )
-                  }
+                  onPress={() => {
+                    const parentNavigator = navigation.getParent<NavigationProp<ParamListBase>>();
+                    parentNavigator?.navigate('Translate', {
+                      screen: 'BankDetail',
+                      params: { itemId: note.vocabItemId },
+                    });
+                  }}
                 >
                   <Text style={styles.noteLink}>View term</Text>
                 </TouchableOpacity>

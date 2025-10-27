@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { VideosStackParamList } from '../../App';
+import type { VideosStackParamList } from '../../navigation/types';
 import { useNotesStore } from '../../state/notes.store';
 import { useBankStore } from '../../state/bank.store';
 
@@ -57,7 +57,7 @@ const AddTimestampScreen: React.FC<Props> = ({ route, navigation }) => {
 
   React.useEffect(() => {
     if (bankItems.length === 0) {
-      void loadBank();
+      loadBank().catch(() => undefined);
     }
   }, [bankItems.length, loadBank]);
 

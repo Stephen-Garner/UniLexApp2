@@ -11,7 +11,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useNotesStore } from '../../state/notes.store';
 import { useBankStore } from '../../state/bank.store';
-import type { TranslatorStackParamList } from '../../App';
+import type { TranslatorStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<TranslatorStackParamList, 'CreateNote'>;
 
@@ -28,7 +28,7 @@ const CreateNoteScreen: React.FC<Props> = ({ navigation }) => {
 
   React.useEffect(() => {
     if (bankItems.length === 0) {
-      void loadBank();
+      loadBank().catch(() => undefined);
     }
   }, [bankItems.length, loadBank]);
 

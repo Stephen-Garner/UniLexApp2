@@ -3,7 +3,7 @@ import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'reac
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useNotesStore } from '../../state/notes.store';
 import { useBankStore } from '../../state/bank.store';
-import type { TranslatorStackParamList } from '../../App';
+import type { TranslatorStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<TranslatorStackParamList, 'NoteDetail'>;
 
@@ -23,10 +23,10 @@ const NoteDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   React.useEffect(() => {
     if (!note) {
-      void loadNotes();
+      loadNotes().catch(() => undefined);
     }
     if (bankItems.length === 0) {
-      void loadBank();
+      loadBank().catch(() => undefined);
     }
   }, [note, loadNotes, bankItems.length, loadBank]);
 
@@ -34,7 +34,7 @@ const NoteDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     if (note) {
       setEditedContent(note.content);
     }
-  }, [note?.content]);
+  }, [note]);
 
   const linkedItem = useMemo(
     () => bankItems.find(item => item.id === note?.vocabItemId) ?? null,

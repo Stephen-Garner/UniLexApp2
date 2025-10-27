@@ -64,7 +64,7 @@ export const useDrillSession = (config: DrillSessionConfig) => {
 
   useEffect(() => {
     if (items.length === 0) {
-      void loadBank();
+      loadBank().catch(() => undefined);
     }
   }, [items.length, loadBank]);
 

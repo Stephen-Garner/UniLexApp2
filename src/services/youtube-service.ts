@@ -18,6 +18,12 @@ const DEFAULT_CONFIG: Required<YoutubeServiceConfig> = {
 const SEARCH_ENDPOINT = 'https://www.googleapis.com/youtube/v3/search';
 const VIDEOS_ENDPOINT = 'https://www.googleapis.com/youtube/v3/videos';
 
+const buildQueryString = (params: Record<string, string | number | undefined>): string =>
+  Object.entries(params)
+    .filter(([, value]) => value !== undefined && value !== '')
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .join('&');
+
 const parseIsoDuration = (duration: string): number => {
   const regex = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/;
   const match = regex.exec(duration);
@@ -59,17 +65,16 @@ export class YouTubeApiService implements YouTubeService {
     }
 
     const apiKey = await this.requireApiKey();
-    const searchUrl = new URL(SEARCH_ENDPOINT);
-    searchUrl.searchParams.set('part', 'snippet');
-    searchUrl.searchParams.set('maxResults', String(limit));
-    searchUrl.searchParams.set('q', query);
-    searchUrl.searchParams.set('type', 'video');
-    searchUrl.searchParams.set('key', apiKey);
-    if (languageCode) {
-      searchUrl.searchParams.set('relevanceLanguage', languageCode);
-    }
+    const searchQuery = buildQueryString({
+      part: 'snippet',
+      maxResults: limit,
+      q: query,
+      type: 'video',
+      key: apiKey,
+      relevanceLanguage: languageCode,
+    });
 
-    const searchResponse = await fetch(searchUrl.toString());
+    const searchResponse = await fetch(`${SEARCH_ENDPOINT}?${searchQuery}`);
     if (!searchResponse.ok) {
       throw new Error(`YouTube search failed with status ${searchResponse.status}`);
     }
@@ -113,12 +118,13 @@ export class YouTubeApiService implements YouTubeService {
   }
 
   private async fetchVideosByIds(videoIds: string[], apiKey: string): Promise<Map<string, YouTubeVideo>> {
-    const url = new URL(VIDEOS_ENDPOINT);
-    url.searchParams.set('part', 'snippet,contentDetails');
-    url.searchParams.set('id', videoIds.join(','));
-    url.searchParams.set('key', apiKey);
+    const queryString = buildQueryString({
+      part: 'snippet,contentDetails',
+      id: videoIds.join(','),
+      key: apiKey,
+    });
 
-    const response = await fetch(url.toString());
+    const response = await fetch(`${VIDEOS_ENDPOINT}?${queryString}`);
     if (!response.ok) {
       throw new Error(`YouTube videos request failed with status ${response.status}`);
     }

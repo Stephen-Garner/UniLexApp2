@@ -1,20 +1,8 @@
 import Tts from 'react-native-tts';
-import RNFS from 'react-native-fs';
-import { Buffer } from 'buffer';
 import type { TtsService } from '../contracts/services';
 
 const DEFAULT_SPEECH_RATE = 0.5;
 const DEFAULT_PITCH = 1.0;
-
-const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
-  const buffer = Buffer.from(base64, 'base64');
-  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
-};
-
-const temporaryTtsPath = async () => {
-  const path = `${RNFS.CachesDirectoryPath}/tts-${Date.now()}.mp3`;
-  return path;
-};
 
 export class ReactNativeTtsService implements TtsService {
   async synthesizeSpeech(params: {
@@ -22,22 +10,12 @@ export class ReactNativeTtsService implements TtsService {
     voiceId: string;
     speakingRate?: number;
   }): Promise<ArrayBuffer> {
-    const { text, voiceId, speakingRate } = params;
+    const { text } = params;
     if (!text.trim()) {
       throw new Error('Text must be provided for synthesis.');
     }
 
-    await Tts.setDefaultVoice(voiceId);
-    if (speakingRate) {
-      await Tts.setDefaultRate(speakingRate, true);
-    }
-
-    const targetPath = await temporaryTtsPath();
-    await Tts.synthesizeToFile(text, { voice: voiceId }, targetPath);
-
-    const base64 = await RNFS.readFile(targetPath, 'base64');
-    await RNFS.unlink(targetPath).catch(() => undefined);
-    return base64ToArrayBuffer(base64);
+    throw new Error('Offline synthesis is not supported on this platform.');
   }
 
   async listVoices(): Promise<string[]> {
@@ -75,7 +53,7 @@ export class ReactNativeTtsService implements TtsService {
 
     await Tts.setDefaultRate(rate ?? DEFAULT_SPEECH_RATE, true);
     await Tts.setDefaultPitch(pitch ?? DEFAULT_PITCH);
-    await Tts.speak(text, { voice: voiceId });
+    await Tts.speak(text);
   }
 
   async stop(): Promise<void> {

@@ -1,7 +1,6 @@
 import type {
   DrillSession,
   ProgressStats,
-  SrsData,
   VocabItem,
   YouTubeVideo,
 } from './models';

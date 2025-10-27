@@ -1,3 +1,5 @@
+/* eslint-env jest */
+
 jest.mock('@react-native-community/netinfo', () => {
   return {
     addEventListener: jest.fn(() => jest.fn()),

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useBankStore } from '../../state/bank.store';
-import type { TranslatorStackParamList } from '../../App';
+import type { TranslatorStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<TranslatorStackParamList, 'BankList'>;
 
@@ -24,7 +24,7 @@ const BankListScreen: React.FC<Props> = ({ navigation }) => {
   const items = getFilteredItems();
 
   useEffect(() => {
-    void loadBank();
+    loadBank().catch(() => undefined);
   }, [loadBank]);
 
   return (

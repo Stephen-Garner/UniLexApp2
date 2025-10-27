@@ -20,12 +20,13 @@ const ProgressDashboardScreen: React.FC = () => {
   } = useProgressDashboardStore();
 
   useEffect(() => {
-    void load();
+    load().catch(() => undefined);
   }, [load]);
 
   useFocusEffect(
     useCallback(() => {
-      void load();
+      load().catch(() => undefined);
+      return () => undefined;
     }, [load]),
   );
 

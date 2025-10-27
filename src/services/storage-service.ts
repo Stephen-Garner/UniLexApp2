@@ -1,4 +1,5 @@
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
+import type { MMKV } from 'react-native-mmkv';
 import type { StorageService } from '../contracts/services';
 
 /** MMKV-backed storage service providing key-value persistence. */
@@ -6,7 +7,7 @@ export class MmkvStorageService implements StorageService {
   private readonly storage: MMKV;
 
   constructor(id: string = 'app_storage_v1') {
-    this.storage = new MMKV({ id });
+    this.storage = createMMKV({ id });
   }
 
   async setItem<TValue>(key: string, value: TValue): Promise<void> {
@@ -27,7 +28,7 @@ export class MmkvStorageService implements StorageService {
   }
 
   async removeItem(key: string): Promise<void> {
-    this.storage.delete(key);
+    this.storage.remove(key);
   }
 
   async listKeys(): Promise<string[]> {

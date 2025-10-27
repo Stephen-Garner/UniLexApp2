@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useVideoStore } from '../../state/video.store';
-import type { VideosStackParamList } from '../../App';
+import type { VideosStackParamList } from '../../navigation/types';
 import { useOfflineStore } from '../../state/offline.store';
 
 type Props = NativeStackScreenProps<VideosStackParamList, 'YouTubeSearch'>;
@@ -39,13 +39,13 @@ const YouTubeSearchScreen: React.FC<Props> = ({ navigation }) => {
     if (isOffline) {
       return;
     }
-    void searchVideos(query, { limit: 15 });
+    searchVideos(query, { limit: 15 }).catch(() => undefined);
   };
 
   const handleSave = (videoId: string) => {
     const video = results.find(item => item.videoId === videoId);
     if (video) {
-      void saveVideo(video);
+      saveVideo(video).catch(() => undefined);
     }
   };
 

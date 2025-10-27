@@ -1,4 +1,5 @@
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
+import type { MMKV } from 'react-native-mmkv';
 import type {
   BankRepository,
   ProgressRepository,
@@ -18,11 +19,7 @@ export class MmkvProgressRepository implements ProgressRepository {
     private readonly bankRepository: BankRepository,
     storage?: MMKV,
   ) {
-    this.storage =
-      storage ??
-      new MMKV({
-        id: STORAGE_ID,
-      });
+    this.storage = storage ?? createMMKV({ id: STORAGE_ID });
   }
 
   async getProgressStats(userId: string): Promise<ProgressStats | null> {

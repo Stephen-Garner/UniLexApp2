@@ -56,14 +56,18 @@ interface NotesState {
   findNote: (noteId: string) => NativeNote | undefined;
 }
 
+const generateNoteId = () => {
+  const scope = globalThis as unknown as {
+    crypto?: { randomUUID?: () => string };
+  };
+
+  const randomUUID = scope.crypto?.randomUUID;
+  return randomUUID ? randomUUID() : `note-${Math.random().toString(36).slice(2)}`;
+};
+
 const createNotePayload = (input: CreateNoteInput): NativeNote => {
   const timestamp = new Date().toISOString();
-  const id =
-    typeof globalThis !== 'undefined' &&
-    'crypto' in globalThis &&
-    typeof globalThis.crypto?.randomUUID === 'function'
-      ? globalThis.crypto.randomUUID()
-      : `note-${Math.random().toString(36).slice(2)}`;
+  const id = generateNoteId();
 
   return {
     id,

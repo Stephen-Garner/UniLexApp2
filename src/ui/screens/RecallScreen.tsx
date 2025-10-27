@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useDrillSession } from '../../state/useDrillSession';
-import type { DrillsStackParamList } from '../../App';
+import type { DrillsStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<DrillsStackParamList, 'Recall'>;
 

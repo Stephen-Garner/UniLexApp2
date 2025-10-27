@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useBankStore } from '../../state/bank.store';
-import type { TranslatorStackParamList } from '../../App';
+import type { TranslatorStackParamList } from '../../navigation/types';
 import WordCard from '../components/WordCard';
 
 type Props = NativeStackScreenProps<TranslatorStackParamList, 'BankDetail'>;

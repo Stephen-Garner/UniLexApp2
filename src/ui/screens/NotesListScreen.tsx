@@ -11,7 +11,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useNotesStore } from '../../state/notes.store';
 import { useBankStore } from '../../state/bank.store';
-import type { TranslatorStackParamList } from '../../App';
+import type { TranslatorStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<TranslatorStackParamList, 'NotesList'>;
 
@@ -31,8 +31,8 @@ const NotesListScreen: React.FC<Props> = ({ navigation }) => {
   const notes = getFilteredNotes();
 
   useEffect(() => {
-    void loadNotes();
-    void loadBank();
+    loadNotes().catch(() => undefined);
+    loadBank().catch(() => undefined);
   }, [loadNotes, loadBank]);
 
   const vocabLabelMap = useMemo(() => {

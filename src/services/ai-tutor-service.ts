@@ -1,4 +1,5 @@
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
+import type { MMKV } from 'react-native-mmkv';
 import type {
   AiTutorService,
   TranslateTextParams,
@@ -43,11 +44,7 @@ export class CachedAiTutorService implements AiTutorService {
     private readonly backend: AiTutorBackend,
     storage?: MMKV,
   ) {
-    this.storage =
-      storage ??
-      new MMKV({
-        id: TRANSLATION_CACHE_NAMESPACE,
-      });
+    this.storage = storage ?? createMMKV({ id: TRANSLATION_CACHE_NAMESPACE });
   }
 
   async translate(params: TranslateTextParams): Promise<string> {

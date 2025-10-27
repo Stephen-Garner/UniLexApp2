@@ -14,7 +14,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { aiTutorService, ttsService } from '../../services/container';
 import { useOfflineStore } from '../../state/offline.store';
 import { useBankStore } from '../../state/bank.store';
-import type { TranslatorStackParamList } from '../../App';
+import type { TranslatorStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<TranslatorStackParamList, 'Translator'>;
 

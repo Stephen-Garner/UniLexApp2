@@ -2,8 +2,15 @@ import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { StatusBar, useColorScheme, View } from 'react-native';
+import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import type {
+  DrillsStackParamList,
+  ProgressStackParamList,
+  SettingsStackParamList,
+  TranslatorStackParamList,
+  VideosStackParamList,
+} from './src/navigation/types';
 import OfflineBanner from './src/ui/components/OfflineBanner';
 import TranslatorScreen from './src/ui/screens/TranslatorScreen';
 import BankListScreen from './src/ui/screens/BankListScreen';
@@ -24,38 +31,6 @@ import ProgressDashboardScreen from './src/ui/screens/ProgressDashboardScreen';
 import { offlineController } from './src/services/container';
 import { setOfflineState } from './src/state/offline.store';
 import SettingsScreen from './src/ui/screens/SettingsScreen';
-
-export type TranslatorStackParamList = {
-  Translator: undefined;
-  BankList: undefined;
-  BankDetail: { itemId: string };
-  NotesList: undefined;
-  CreateNote: undefined;
-  NoteDetail: { noteId: string };
-};
-
-export type DrillsStackParamList = {
-  DrillModes: undefined;
-  Recall: undefined;
-  Recognition: undefined;
-  Cloze: undefined;
-  ListenType: undefined;
-};
-
-export type VideosStackParamList = {
-  YouTubeSearch: undefined;
-  SavedVideos: undefined;
-  VideoDetail: { videoId: string };
-  AddTimestamp: { videoId: string };
-};
-
-export type ProgressStackParamList = {
-  ProgressDashboard: undefined;
-};
-
-export type SettingsStackParamList = {
-  Settings: undefined;
-};
 
 const TranslatorStack = createNativeStackNavigator<TranslatorStackParamList>();
 const DrillsStack = createNativeStackNavigator<DrillsStackParamList>();
@@ -174,7 +149,7 @@ const SettingsStackScreen = () => (
   </SettingsStack.Navigator>
 );
 
-function App(): JSX.Element {
+function App() {
   const isDarkMode = useColorScheme() === 'dark';
 
   useEffect(() => {
@@ -186,7 +161,7 @@ function App(): JSX.Element {
       unsubscribe = offlineController.onConnectivityChange(setOfflineState);
     };
 
-    void initialise();
+    initialise().catch(() => undefined);
 
     return () => {
       unsubscribe?.();
@@ -197,7 +172,7 @@ function App(): JSX.Element {
     <SafeAreaProvider>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <NavigationContainer>
-        <View style={{ flex: 1 }}>
+        <View style={styles.appContainer}>
           <OfflineBanner />
           <Tab.Navigator screenOptions={{ headerShown: false }}>
             <Tab.Screen name="Translate" component={TranslatorStackScreen} />
@@ -213,3 +188,9 @@ function App(): JSX.Element {
 }
 
 export default App;
+
+const styles = StyleSheet.create({
+  appContainer: {
+    flex: 1,
+  },
+});

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { createSound } from 'react-native-nitro-sound';
 import type { VocabItem } from '../../contracts/models';
@@ -17,7 +17,7 @@ const WordCard: React.FC<WordCardProps> = ({ item }) => {
 
   const playerRef = useRef<ReturnType<typeof createSound> | null>(null);
 
-  const stopPlayback = async () => {
+  const stopPlayback = useCallback(async () => {
     try {
       await playerRef.current?.stopPlayer();
     } catch (error) {
@@ -26,17 +26,18 @@ const WordCard: React.FC<WordCardProps> = ({ item }) => {
     playerRef.current?.removePlaybackEndListener?.();
     playerRef.current = null;
     setIsPlaying(false);
-  };
+  }, []);
 
   useEffect(() => {
     return () => {
       if (recordingSessionId) {
-        void audioRecorderService.cleanupRecording(recordingSessionId);
+        audioRecorderService
+          .cleanupRecording(recordingSessionId)
+          .catch(() => undefined);
       }
-      void stopPlayback();
+      stopPlayback().catch(() => undefined);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [recordingSessionId, stopPlayback]);
 
   const handleSpeak = async () => {
     try {

@@ -21,7 +21,6 @@ export {
   bankRepository,
   notesRepository,
   videoRepository,
-  progressRepository,
   storageService,
   youTubeService,
   audioRecorderService,

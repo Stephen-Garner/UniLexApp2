@@ -1,7 +1,7 @@
 import React from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import type { DrillsStackParamList } from '../../App';
+import type { DrillsStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<DrillsStackParamList, 'DrillModes'>;
 

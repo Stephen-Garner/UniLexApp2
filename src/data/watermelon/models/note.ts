@@ -5,7 +5,7 @@ export class NoteModel extends Model {
   static table = 'notes';
 
   getRawValue<TValue = unknown>(key: string): TValue {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    return (this._raw as Record<string, TValue>)[key];
+    const rawRecord = this._raw as unknown as Record<string, TValue>;
+    return rawRecord[key];
   }
 }

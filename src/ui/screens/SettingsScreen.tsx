@@ -14,8 +14,6 @@ import { useOfflineStore } from '../../state/offline.store';
 
 const SettingsScreen: React.FC = () => {
   const {
-    youtubeApiKey,
-    aiTutorApiKey,
     dailyGoalMinutes,
     theme,
     preferredVoiceId,
@@ -35,12 +33,16 @@ const SettingsScreen: React.FC = () => {
   const [goalDraft, setGoalDraft] = useState(String(dailyGoalMinutes));
 
   useEffect(() => {
-    void loadSettings().then(() => {
-      setYoutubeDraft(useSettingsStore.getState().youtubeApiKey);
-      setAiDraft(useSettingsStore.getState().aiTutorApiKey);
-      setGoalDraft(String(useSettingsStore.getState().dailyGoalMinutes));
-      void refreshVoices();
-    });
+    const hydrate = async () => {
+      await loadSettings();
+      const state = useSettingsStore.getState();
+      setYoutubeDraft(state.youtubeApiKey);
+      setAiDraft(state.aiTutorApiKey);
+      setGoalDraft(String(state.dailyGoalMinutes));
+      await refreshVoices();
+    };
+
+    hydrate().catch(() => undefined);
   }, [loadSettings, refreshVoices]);
 
   const handleSave = async () => {

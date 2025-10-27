@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useVideoStore } from '../../state/video.store';
-import type { VideosStackParamList } from '../../App';
+import type { VideosStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<VideosStackParamList, 'SavedVideos'>;
 
@@ -27,7 +27,7 @@ const SavedVideosScreen: React.FC<Props> = ({ navigation }) => {
   const error = useVideoStore(state => state.error);
 
   useEffect(() => {
-    void loadSavedVideos();
+    loadSavedVideos().catch(() => undefined);
   }, [loadSavedVideos]);
 
   return (
@@ -52,7 +52,9 @@ const SavedVideosScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.removeButton}
-                onPress={() => void removeVideo(item.videoId)}
+                onPress={() => {
+                  removeVideo(item.videoId).catch(() => undefined);
+                }}
               >
                 <Text style={styles.removeButtonLabel}>Remove</Text>
               </TouchableOpacity>
