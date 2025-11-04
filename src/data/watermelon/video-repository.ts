@@ -16,7 +16,7 @@ const serializeVideo = (video: YouTubeVideo) => ({
   published_at: video.publishedAt,
   thumbnail_url: video.thumbnailUrl,
   transcript: video.transcript ?? null,
-  saved_at: new Date().toISOString(),
+  saved_at: Date.now(),
 });
 
 const deserializeVideo = (record: VideoModel): YouTubeVideo => {

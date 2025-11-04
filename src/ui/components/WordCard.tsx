@@ -1,13 +1,39 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { createSound } from 'react-native-nitro-sound';
 import type { VocabItem } from '../../contracts/models';
 import { audioRecorderService, ttsService } from '../../services/container';
+import { fontFamilies } from '../theme/tokens';
+
+type CreateSoundFactory = typeof import('react-native-nitro-sound')['createSound'];
 
 interface WordCardProps {
   /** Vocabulary item whose details should be displayed. */
   item: VocabItem;
 }
+
+type NitroSoundInstance = ReturnType<CreateSoundFactory>;
+
+let createSoundFactory: CreateSoundFactory | undefined;
+try {
+  createSoundFactory = require('react-native-nitro-sound').createSound as CreateSoundFactory;
+} catch (error) {
+  if (__DEV__) {
+    console.warn('react-native-nitro-sound is unavailable; recording controls will be disabled.', error);
+  }
+}
+
+const produceSoundInstance = (): NitroSoundInstance | null => {
+  if (!createSoundFactory) {
+    return null;
+  }
+
+  try {
+    return createSoundFactory();
+  } catch (error) {
+    console.warn('Failed to initialise Nitro sound instance.', error);
+    return null;
+  }
+};
 
 const WordCard: React.FC<WordCardProps> = ({ item }) => {
   const [recordingSessionId, setRecordingSessionId] = useState<string | null>(null);
@@ -15,7 +41,8 @@ const WordCard: React.FC<WordCardProps> = ({ item }) => {
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  const playerRef = useRef<ReturnType<typeof createSound> | null>(null);
+  const playerRef = useRef<NitroSoundInstance | null>(null);
+  const audioUnavailable = createSoundFactory == null;
 
   const stopPlayback = useCallback(async () => {
     try {
@@ -51,6 +78,10 @@ const WordCard: React.FC<WordCardProps> = ({ item }) => {
 
   const handleRecordPress = async () => {
     try {
+      if (audioUnavailable) {
+        console.warn('Recording unavailable: sound engine not initialised.');
+        return;
+      }
       if (!isRecording) {
         if (recordingSessionId) {
           await audioRecorderService.cleanupRecording(recordingSessionId);
@@ -72,7 +103,10 @@ const WordCard: React.FC<WordCardProps> = ({ item }) => {
   };
 
   const handlePlayPress = async () => {
-    if (!recordingUri) {
+    if (!recordingUri || audioUnavailable) {
+      if (audioUnavailable) {
+        console.warn('Playback unavailable: sound engine not initialised.');
+      }
       return;
     }
 
@@ -82,7 +116,10 @@ const WordCard: React.FC<WordCardProps> = ({ item }) => {
     }
 
     try {
-      const player = createSound();
+      const player = produceSoundInstance();
+      if (!player) {
+        return;
+      }
       player.addPlaybackEndListener(() => {
         setIsPlaying(false);
         player.removePlaybackEndListener();
@@ -108,17 +145,25 @@ const WordCard: React.FC<WordCardProps> = ({ item }) => {
           <Text style={styles.secondaryButtonLabel}>Speak</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.primaryButton, isRecording && styles.warningButton]}
+          style={[
+            styles.primaryButton,
+            isRecording && styles.warningButton,
+            audioUnavailable && styles.disabledButton,
+          ]}
           onPress={handleRecordPress}
+          disabled={audioUnavailable}
         >
           <Text style={styles.primaryButtonLabel}>
             {isRecording ? 'Stop' : 'Record'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.secondaryButton, !recordingUri && styles.disabledButton]}
+          style={[
+            styles.secondaryButton,
+            (!recordingUri || audioUnavailable) && styles.disabledButton,
+          ]}
           onPress={handlePlayPress}
-          disabled={!recordingUri}
+          disabled={!recordingUri || audioUnavailable}
         >
           <Text style={styles.secondaryButtonLabel}>
             {isPlaying ? 'Stop' : 'Play'}
@@ -143,7 +188,8 @@ const styles = StyleSheet.create({
   },
   term: {
     fontSize: 22,
-    fontWeight: '700',
+    lineHeight: 28,
+    fontFamily: fontFamilies.serif.semibold,
     color: '#111827',
   },
   reading: {
@@ -152,7 +198,7 @@ const styles = StyleSheet.create({
   },
   meaning: {
     color: '#1f2937',
-    fontWeight: '500',
+    fontFamily: fontFamilies.sans.medium,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -170,7 +216,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonLabel: {
     color: '#ffffff',
-    fontWeight: '600',
+    fontFamily: fontFamilies.sans.semibold,
   },
   secondaryButton: {
     flex: 1,
@@ -182,7 +228,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonLabel: {
     color: '#2563eb',
-    fontWeight: '600',
+    fontFamily: fontFamilies.sans.semibold,
   },
   disabledButton: {
     opacity: 0.5,

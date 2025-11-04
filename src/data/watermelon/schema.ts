@@ -2,7 +2,7 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 /** Schema describing the vocabulary bank storage. */
 export const vocabularyBankSchema = appSchema({
-  version: 3,
+  version: 6,
   tables: [
     tableSchema({
       name: 'bank_items',
@@ -12,22 +12,24 @@ export const vocabularyBankSchema = appSchema({
         { name: 'meaning', type: 'string' },
         { name: 'examples', type: 'string', isOptional: true },
         { name: 'tags', type: 'string', isOptional: true },
+        { name: 'folders', type: 'string', isOptional: true },
         { name: 'level', type: 'string' },
-        { name: 'created_at', type: 'string' },
-        { name: 'updated_at', type: 'string' },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
         { name: 'srs_data', type: 'string', isOptional: true },
       ],
     }),
     tableSchema({
       name: 'notes',
       columns: [
-        { name: 'vocab_item_id', type: 'string' },
+        { name: 'vocab_item_id', type: 'string', isOptional: true },
+        { name: 'title', type: 'string', isOptional: true },
         { name: 'content', type: 'string' },
         { name: 'source_language', type: 'string' },
-        { name: 'created_at', type: 'string' },
-        { name: 'updated_at', type: 'string' },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
         { name: 'answer', type: 'string', isOptional: true },
-        { name: 'answered_at', type: 'string', isOptional: true },
+        { name: 'answered_at', type: 'number', isOptional: true },
         { name: 'video_id', type: 'string', isOptional: true },
         { name: 'timestamp_seconds', type: 'number', isOptional: true },
       ],
@@ -42,7 +44,7 @@ export const vocabularyBankSchema = appSchema({
         { name: 'published_at', type: 'string' },
         { name: 'thumbnail_url', type: 'string' },
         { name: 'transcript', type: 'string', isOptional: true },
-        { name: 'saved_at', type: 'string' },
+        { name: 'saved_at', type: 'number' },
       ],
     }),
   ],

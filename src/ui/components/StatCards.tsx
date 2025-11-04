@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { fontFamilies } from '../theme/tokens';
 
 interface StatCardsProps {
   streakDays: number;
@@ -45,11 +46,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
+    fontFamily: fontFamilies.sans.semibold,
   },
   value: {
     color: '#ffffff',
     fontSize: 20,
-    fontWeight: '700',
+    lineHeight: 26,
+    fontFamily: fontFamilies.serif.semibold,
   },
 });
 

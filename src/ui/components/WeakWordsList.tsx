@@ -1,6 +1,7 @@
 import React from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import type { VocabItem } from '../../contracts/models';
+import { fontFamilies } from '../theme/tokens';
 
 interface WeakWordsListProps {
   items: VocabItem[];
@@ -38,6 +39,7 @@ const WeakWordsList: React.FC<WeakWordsListProps> = ({ items }) => {
 const styles = StyleSheet.create({
   placeholder: {
     color: '#6b7280',
+    fontFamily: fontFamilies.sans.regular,
   },
   row: {
     flexDirection: 'row',
@@ -51,7 +53,7 @@ const styles = StyleSheet.create({
     width: 24,
     textAlign: 'center',
     color: '#1f2937',
-    fontWeight: '600',
+    fontFamily: fontFamilies.sans.semibold,
   },
   content: {
     flex: 1,
@@ -59,10 +61,11 @@ const styles = StyleSheet.create({
   },
   term: {
     color: '#111827',
-    fontWeight: '600',
+    fontFamily: fontFamilies.serif.semibold,
   },
   meta: {
     color: '#6b7280',
+    fontFamily: fontFamilies.sans.regular,
   },
 });
 

@@ -35,6 +35,8 @@ export const VocabItemSchema = z.object({
   examples: z.array(z.string().min(1)),
   /** Topical tags used to organize the vocabulary item. */
   tags: z.array(z.string().min(1)),
+  /** Organisational folders the vocabulary item belongs to. */
+  folders: z.array(z.string().min(1)).catch(() => []),
   /** CEFR or user-defined difficulty level associated with the item. */
   level: z.string().min(1),
   /** Timestamp indicating when the vocabulary item was created. */
@@ -53,7 +55,9 @@ export const NativeNoteSchema = z.object({
   /** Unique identifier for the note. */
   id: z.string().uuid(),
   /** Identifier of the vocabulary item the note is attached to. */
-  vocabItemId: z.string().uuid(),
+  vocabItemId: z.string().uuid().nullable().optional(),
+  /** Title summarising the note. */
+  title: z.string().min(1),
   /** Free-form note content authored by the learner. */
   content: z.string().min(1),
   /** Language code representing the language used in the note. */

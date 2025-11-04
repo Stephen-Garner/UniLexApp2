@@ -4,18 +4,27 @@ import { notesRepository } from '../services/container';
 
 /** Input payload required to create a new note. */
 export interface CreateNoteInput {
-  /** Identifier of the related vocabulary item. */
-  vocabItemId: string;
-  /** Language code describing the source language for the note. */
-  sourceLanguage: string;
+  /** Short title describing the note. */
+  title: string;
   /** Body content for the note. */
   content: string;
+  /** Identifier of the related vocabulary item, if any. */
+  vocabItemId?: string;
+  /** Language code describing the source language for the note. */
+  sourceLanguage?: string;
   /** Optional answer content associated with the note. */
   answer?: string | null;
   /** Identifier of the associated video, if the note references one. */
   videoId?: string;
   /** Timestamp in seconds within the associated video. */
   timestampSeconds?: number;
+}
+
+export interface UpdateNotePayload {
+  /** Replacement note title authored by the learner. */
+  title: string;
+  /** Replacement note content authored by the learner. */
+  content: string;
 }
 
 /** Zustand store describing note state and operations. */
@@ -47,7 +56,9 @@ interface NotesState {
   /** Persists a new note and adds it to the local state. */
   createNote: (input: CreateNoteInput) => Promise<NativeNote>;
   /** Updates note content in persistence. */
-  updateNoteContent: (noteId: string, content: string) => Promise<void>;
+  updateNoteContent: (noteId: string, payload: UpdateNotePayload) => Promise<void>;
+  /** Updates the answered status metadata for a note. */
+  setNoteAnswered: (noteId: string, answered: boolean) => Promise<void>;
   /** Removes a note from persistence and local state. */
   deleteNote: (noteId: string) => Promise<void>;
   /** Returns notes filtered by the current query and filters. */
@@ -65,15 +76,58 @@ const generateNoteId = () => {
   return randomUUID ? randomUUID() : `note-${Math.random().toString(36).slice(2)}`;
 };
 
-const createNotePayload = (input: CreateNoteInput): NativeNote => {
+const buildUntitledTitle = (index: number | null): string =>
+  index == null || index < 1 ? 'Untitled note' : `Untitled note (${index})`;
+
+const assignUntitledTitle = (existing: NativeNote[], preferred?: string): string => {
+  const trimmed = preferred?.trim();
+  if (trimmed) {
+    return trimmed;
+  }
+
+  const base = 'Untitled note';
+  const untitledTitles = existing
+    .map(note => note.title)
+    .filter(title => title.toLowerCase().startsWith(base))
+    .map(title => {
+      const match = title.match(/\((\d+)\)$/);
+      return match ? Number(match[1]) : 0;
+    });
+
+  if (!untitledTitles.includes(0)) {
+    return base;
+  }
+
+  let suffix = 1;
+  while (untitledTitles.includes(suffix)) {
+    suffix += 1;
+  }
+
+  return buildUntitledTitle(suffix);
+};
+
+const normaliseNote = (note: NativeNote, existing: NativeNote[] = []): NativeNote => {
+  const title = note.title && note.title.trim().length > 0
+    ? note.title.trim()
+    : assignUntitledTitle(existing, undefined);
+
+  return {
+    ...note,
+    title,
+    vocabItemId: note.vocabItemId ?? undefined,
+  };
+};
+
+const createNotePayload = (input: CreateNoteInput, existing: NativeNote[]): NativeNote => {
   const timestamp = new Date().toISOString();
   const id = generateNoteId();
 
   return {
     id,
-    vocabItemId: input.vocabItemId,
+    title: assignUntitledTitle(existing, input.title),
+    vocabItemId: input.vocabItemId?.trim() || undefined,
     content: input.content,
-    sourceLanguage: input.sourceLanguage,
+    sourceLanguage: (input.sourceLanguage ?? 'en').trim() || 'en',
     createdAt: timestamp,
     updatedAt: timestamp,
     answer: input.answer ?? undefined,
@@ -98,7 +152,10 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     set({ isLoading: true, error: undefined });
     try {
       const notes = await notesRepository.listAllNotes();
-      set({ notes, isLoading: false });
+      const normalised = notes.map((note, index, array) =>
+        normaliseNote(note, array.slice(0, index)),
+      );
+      set({ notes: normalised, isLoading: false });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to load notes.',
@@ -108,12 +165,17 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
   createNote: async input => {
     set({ isLoading: true, error: undefined });
-    const note = createNotePayload(input);
+    const existingNotes = get().notes;
+    const note = createNotePayload(input, existingNotes);
 
     try {
       await notesRepository.createNote(note);
-      set({ notes: [note, ...get().notes], isLoading: false });
-      return note;
+      const nextNotes = [note, ...existingNotes];
+      const normalised = nextNotes.map((entry, index) =>
+        normaliseNote(entry, nextNotes.slice(0, index)),
+      );
+      set({ notes: normalised, isLoading: false });
+      return normaliseNote(note, existingNotes);
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to create note.',
@@ -122,22 +184,31 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       throw error;
     }
   },
-  updateNoteContent: async (noteId, content) => {
+  updateNoteContent: async (noteId, payload) => {
     set({ isLoading: true, error: undefined });
     try {
-      await notesRepository.updateNoteContent(noteId, content);
+      await notesRepository.updateNoteContent(noteId, payload);
       const timestamp = new Date().toISOString();
-      set({
-        notes: get().notes.map(note =>
+      set(state => {
+        const updated = state.notes.map(note =>
           note.id === noteId
             ? {
                 ...note,
-                content,
+                title: payload.title,
+                content: payload.content,
                 updatedAt: timestamp,
               }
             : note,
-        ),
-        isLoading: false,
+        );
+
+        const normalised = updated.map((entry, index) =>
+          normaliseNote(entry, updated.slice(0, index)),
+        );
+
+        return {
+          notes: normalised,
+          isLoading: false,
+        };
       });
     } catch (error) {
       set({
@@ -147,13 +218,54 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       throw error;
     }
   },
+  setNoteAnswered: async (noteId, answered) => {
+    set({ isLoading: true, error: undefined });
+    const timestamp = new Date().toISOString();
+    const answeredAt = answered ? timestamp : undefined;
+
+    try {
+      await notesRepository.updateNoteStatus(noteId, answered ? timestamp : null);
+      set(state => {
+        const updated = state.notes.map(note =>
+          note.id === noteId
+            ? {
+                ...note,
+                answeredAt,
+                updatedAt: timestamp,
+              }
+            : note,
+        );
+
+        const normalised = updated.map((entry, index) =>
+          normaliseNote(entry, updated.slice(0, index)),
+        );
+
+        return {
+          notes: normalised,
+          isLoading: false,
+        };
+      });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to update note status.',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
   deleteNote: async noteId => {
     set({ isLoading: true, error: undefined });
     try {
       await notesRepository.deleteNote(noteId);
-      set({
-        notes: get().notes.filter(note => note.id !== noteId),
-        isLoading: false,
+      set(state => {
+        const filtered = state.notes.filter(note => note.id !== noteId);
+        const normalised = filtered.map((entry, index) =>
+          normaliseNote(entry, filtered.slice(0, index)),
+        );
+        return {
+          notes: normalised,
+          isLoading: false,
+        };
       });
     } catch (error) {
       set({
@@ -175,13 +287,13 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         if (videoFilter && note.videoId !== videoFilter) {
           return false;
         }
-        if (unansweredOnly && note.answer) {
+        if (unansweredOnly && note.answeredAt) {
           return false;
         }
         if (!normalizedQuery) {
           return true;
         }
-        return [note.content, note.answer, note.videoId]
+        return [note.title, note.content, note.answer, note.videoId]
           .filter(Boolean)
           .join(' ')
           .toLowerCase()

@@ -1,7 +1,7 @@
 import { CachedAiTutorService, EchoAiTutorBackend } from './ai-tutor-service';
 import { offlineController } from './offline-controller';
-import { bankRepository } from '../data/watermelon/bank-repository';
-import { notesRepository } from '../data/watermelon/notes-repository';
+import { bankRepository } from '../data/resilient/bank-repository';
+import { notesRepository } from '../data/resilient/notes-repository';
 import { videoRepository } from '../data/watermelon/video-repository';
 import { MmkvProgressRepository } from '../data/mmkv/progress-repository';
 import { storageService } from './storage-service';

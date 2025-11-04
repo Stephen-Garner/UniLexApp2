@@ -1,156 +1,178 @@
 import React, { useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+  DefaultTheme as NavigationLightTheme,
+  DarkTheme as NavigationDarkTheme,
+} from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import {
+  StatusBar,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  Text,
+  TextInput,
+  Image,
+  type TextStyle,
+  type ImageSourcePropType,
+} from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type {
-  DrillsStackParamList,
-  ProgressStackParamList,
-  SettingsStackParamList,
-  TranslatorStackParamList,
-  VideosStackParamList,
+  RootStackParamList,
+  MainTabsParamList,
 } from './src/navigation/types';
 import OfflineBanner from './src/ui/components/OfflineBanner';
-import TranslatorScreen from './src/ui/screens/TranslatorScreen';
-import BankListScreen from './src/ui/screens/BankListScreen';
-import BankDetailScreen from './src/ui/screens/BankDetailScreen';
-import DrillModeScreen from './src/ui/screens/DrillModeScreen';
-import RecallScreen from './src/ui/screens/RecallScreen';
-import RecognitionScreen from './src/ui/screens/RecognitionScreen';
-import ClozeScreen from './src/ui/screens/ClozeScreen';
-import ListenTypeScreen from './src/ui/screens/ListenTypeScreen';
-import NotesListScreen from './src/ui/screens/NotesListScreen';
-import CreateNoteScreen from './src/ui/screens/CreateNoteScreen';
-import NoteDetailScreen from './src/ui/screens/NoteDetailScreen';
-import YouTubeSearchScreen from './src/ui/screens/YouTubeSearchScreen';
-import SavedVideosScreen from './src/ui/screens/SavedVideosScreen';
-import VideoDetailScreen from './src/ui/screens/VideoDetailScreen';
-import AddTimestampScreen from './src/ui/screens/AddTimestampScreen';
+import HomeScreen from './src/ui/screens/HomeScreen';
+import ChatScreen from './src/ui/screens/ChatScreen';
+import WordBankScreen from './src/ui/screens/WordBankScreen';
+import ActivitiesScreen from './src/ui/screens/ActivitiesScreen';
+import NativeNotesScreen from './src/ui/screens/NativeNotesScreen';
 import ProgressDashboardScreen from './src/ui/screens/ProgressDashboardScreen';
+import WordDetailScreen from './src/ui/screens/WordDetailScreen';
+import NoteDetailScreen from './src/ui/screens/NoteDetailScreen';
+import CreateNoteScreen from './src/ui/screens/CreateNoteScreen';
+import SettingsScreen from './src/ui/screens/SettingsScreen';
 import { offlineController } from './src/services/container';
 import { setOfflineState } from './src/state/offline.store';
-import SettingsScreen from './src/ui/screens/SettingsScreen';
+import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
+import { ThemeProvider, useTheme } from './src/ui/theme/theme';
+import { fontFamilies } from './src/ui/theme/tokens';
 
-const TranslatorStack = createNativeStackNavigator<TranslatorStackParamList>();
-const DrillsStack = createNativeStackNavigator<DrillsStackParamList>();
-const VideosStack = createNativeStackNavigator<VideosStackParamList>();
-const ProgressStack = createNativeStackNavigator<ProgressStackParamList>();
-const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
-const Tab = createBottomTabNavigator();
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<MainTabsParamList>();
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
-const TranslatorStackScreen = () => (
-  <TranslatorStack.Navigator>
-    <TranslatorStack.Screen
-      name="Translator"
-      component={TranslatorScreen}
-      options={{ title: 'Translator' }}
-    />
-    <TranslatorStack.Screen
-      name="BankList"
-      component={BankListScreen}
-      options={{ title: 'Vocabulary Bank' }}
-    />
-    <TranslatorStack.Screen
-      name="BankDetail"
-      component={BankDetailScreen}
-      options={{ title: 'Vocabulary Detail' }}
-    />
-    <TranslatorStack.Screen
-      name="NotesList"
-      component={NotesListScreen}
-      options={{ title: 'Notes' }}
-    />
-    <TranslatorStack.Screen
-      name="CreateNote"
-      component={CreateNoteScreen}
-      options={{ title: 'Create Note' }}
-    />
-    <TranslatorStack.Screen
-      name="NoteDetail"
-      component={NoteDetailScreen}
-      options={{ title: 'Note Detail' }}
-    />
-  </TranslatorStack.Navigator>
+type TabIconConfig = {
+  default: ImageSourcePropType;
+  active: ImageSourcePropType;
+};
+
+const tabIcons: Record<keyof MainTabsParamList, TabIconConfig> = {
+  Home: {
+    default: require('./assets/icons/home-line.png'),
+    active: require('./assets/icons/home-fill.png'),
+  },
+  Chat: {
+    default: require('./assets/icons/chat-ai-4-line.png'),
+    active: require('./assets/icons/chat-ai-4-fill.png'),
+  },
+  WordBank: {
+    default: require('./assets/icons/archive-drawer-line.png'),
+    active: require('./assets/icons/archive-drawer-fill.png'),
+  },
+  Activities: {
+    default: require('./assets/icons/brain-2-line.png'),
+    active: require('./assets/icons/brain-2-fill.png'),
+  },
+  NativeNotes: {
+    default: require('./assets/icons/booklet-line.png'),
+    active: require('./assets/icons/booklet-fill.png'),
+  },
+};
+
+const defaultTextStyle: TextStyle = { fontFamily: fontFamilies.sans.regular };
+Text.defaultProps = Text.defaultProps ?? {};
+Text.defaultProps.style = StyleSheet.compose(defaultTextStyle, Text.defaultProps.style);
+
+const defaultTextInputStyle: TextStyle = { fontFamily: fontFamilies.sans.regular };
+TextInput.defaultProps = TextInput.defaultProps ?? {};
+TextInput.defaultProps.style = StyleSheet.compose(
+  defaultTextInputStyle,
+  TextInput.defaultProps.style,
 );
 
-const DrillsStackScreen = () => (
-  <DrillsStack.Navigator>
-    <DrillsStack.Screen
-      name="DrillModes"
-      component={DrillModeScreen}
-      options={{ title: 'Drills' }}
-    />
-    <DrillsStack.Screen
-      name="Recall"
-      component={RecallScreen}
-      options={{ title: 'Recall' }}
-    />
-    <DrillsStack.Screen
-      name="Recognition"
-      component={RecognitionScreen}
-      options={{ title: 'Recognition' }}
-    />
-    <DrillsStack.Screen
-      name="Cloze"
-      component={ClozeScreen}
-      options={{ title: 'Cloze' }}
-    />
-    <DrillsStack.Screen
-      name="ListenType"
-      component={ListenTypeScreen}
-      options={{ title: 'Listen & Type' }}
-    />
-  </DrillsStack.Navigator>
+const HeaderIconButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
+  const { colors, mode } = useTheme();
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel="Open profile and settings"
+      style={[
+        styles.headerIconButton,
+        { backgroundColor: 'transparent' },
+      ]}
+      onPress={onPress}
+    >
+      <Image
+        source={require('./assets/icons/settings-line.png')}
+        style={[
+          styles.headerIconGlyph,
+          { tintColor: mode === 'dark' ? '#FFFFFF' : '#000000' },
+        ]}
+      />
+    </TouchableOpacity>
+  );
+};
+
+const handleProfilePress = () => {
+  if (navigationRef.isReady()) {
+    navigationRef.navigate('Settings');
+  }
+};
+
+const headerRight: NativeStackNavigationOptions['headerRight'] = () => (
+  <HeaderIconButton onPress={handleProfilePress} />
 );
 
-const VideosStackScreen = () => (
-  <VideosStack.Navigator>
-    <VideosStack.Screen
-      name="YouTubeSearch"
-      component={YouTubeSearchScreen}
-      options={{ title: 'Search Videos' }}
-    />
-    <VideosStack.Screen
-      name="SavedVideos"
-      component={SavedVideosScreen}
-      options={{ title: 'Saved Videos' }}
-    />
-    <VideosStack.Screen
-      name="VideoDetail"
-      component={VideoDetailScreen}
-      options={{ title: 'Video Detail' }}
-    />
-    <VideosStack.Screen
-      name="AddTimestamp"
-      component={AddTimestampScreen}
-      options={{ title: 'Add Timestamp' }}
-    />
-  </VideosStack.Navigator>
-);
+const createDetailOptions = (title: string): NativeStackNavigationOptions => ({
+  headerShown: true,
+  title,
+  headerRight,
+  headerTitleStyle: {
+    fontFamily: fontFamilies.serif.semibold,
+  },
+});
 
-const ProgressStackScreen = () => (
-  <ProgressStack.Navigator>
-    <ProgressStack.Screen
-      name="ProgressDashboard"
-      component={ProgressDashboardScreen}
-      options={{ title: 'Progress' }}
-    />
-  </ProgressStack.Navigator>
-);
+const MainTabs: React.FC = () => {
+  const { mode, colors } = useTheme();
+  const isDarkMode = mode === 'dark';
 
-const SettingsStackScreen = () => (
-  <SettingsStack.Navigator>
-    <SettingsStack.Screen
-      name="Settings"
-      component={SettingsScreen}
-      options={{ title: 'Settings' }}
-    />
-  </SettingsStack.Navigator>
-);
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => {
+        const icon = tabIcons[route.name as keyof MainTabsParamList];
+
+        return {
+        headerShown: false,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarShowLabel: false,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            backgroundColor: colors.background,
+            borderTopColor: 'transparent',
+          },
+        ],
+        headerTitleStyle: {
+          fontFamily: fontFamilies.serif.semibold,
+        },
+        tabBarIcon: ({ focused }) => (
+          <Image
+            source={focused ? icon.active : icon.default}
+            style={[
+              styles.tabIcon,
+              { tintColor: focused ? colors.accent : colors.textSecondary },
+            ]}
+          />
+        ),
+      };
+    }}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Chat" component={ChatScreen} />
+      <Tab.Screen name="WordBank" component={WordBankScreen} options={{ title: 'Word Bank' }} />
+      <Tab.Screen name="Activities" component={ActivitiesScreen} />
+      <Tab.Screen name="NativeNotes" component={NativeNotesScreen} options={{ title: 'Native Notes' }} />
+    </Tab.Navigator>
+  );
+};
 
 function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+  const { mode, colors } = useTheme();
+  const isDarkMode = mode === 'dark';
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -171,26 +193,85 @@ function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <NavigationContainer>
-        <View style={styles.appContainer}>
+      <NavigationContainer
+        ref={navigationRef}
+        theme={isDarkMode ? NavigationDarkTheme : NavigationLightTheme}
+      >
+        <View style={[styles.appContainer, { backgroundColor: colors.background }]}>
           <OfflineBanner />
-          <Tab.Navigator screenOptions={{ headerShown: false }}>
-            <Tab.Screen name="Translate" component={TranslatorStackScreen} />
-            <Tab.Screen name="Drills" component={DrillsStackScreen} />
-            <Tab.Screen name="Videos" component={VideosStackScreen} />
-            <Tab.Screen name="Progress" component={ProgressStackScreen} />
-            <Tab.Screen name="Settings" component={SettingsStackScreen} />
-          </Tab.Navigator>
+          <RootStack.Navigator screenOptions={{ headerShown: false }}>
+            <RootStack.Screen name="MainTabs" component={MainTabs} />
+            <RootStack.Screen
+              name="ProgressDashboard"
+              component={ProgressDashboardScreen}
+              options={createDetailOptions('Progress Dashboard')}
+            />
+            <RootStack.Screen
+              name="WordDetail"
+              component={WordDetailScreen}
+              options={createDetailOptions('Word Detail')}
+            />
+        <RootStack.Screen
+          name="NoteDetail"
+          component={NoteDetailScreen}
+          options={{ headerShown: false }}
+        />
+        <RootStack.Screen
+          name="CreateNote"
+          component={CreateNoteScreen}
+          options={{ headerShown: false }}
+        />
+            <RootStack.Screen
+              name="Settings"
+              component={SettingsScreen}
+              options={{
+                headerShown: true,
+                title: 'Profile & Settings',
+              }}
+            />
+          </RootStack.Navigator>
         </View>
       </NavigationContainer>
     </SafeAreaProvider>
   );
 }
 
-export default App;
+const ThemedApp: React.FC = () => (
+  <ThemeProvider>
+    <App />
+  </ThemeProvider>
+);
+
+export default ThemedApp;
 
 const styles = StyleSheet.create({
   appContainer: {
     flex: 1,
+  },
+  tabBar: {
+    height: 72,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'transparent',
+  },
+  tabIcon: {
+    width: 26,
+    height: 26,
+    resizeMode: 'contain',
+  },
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 4,
+  },
+  headerIconGlyph: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
   },
 });

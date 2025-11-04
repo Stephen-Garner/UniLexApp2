@@ -7,6 +7,7 @@ const createVocabItem = (overrides: Partial<VocabItem>): VocabItem => ({
   meaning: 'meaning',
   examples: [],
   tags: [],
+  folders: [],
   level: 'A1',
   createdAt: '2025-01-01T00:00:00.000Z',
   updatedAt: '2025-01-01T00:00:00.000Z',

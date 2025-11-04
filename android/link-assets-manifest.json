@@ -1,0 +1,45 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "assets/fonts/Merriweather-Regular.ttf",
+      "sha1": "8fd879853a4de9f31d7b4377eb6b4e3a62d370dc"
+    },
+    {
+      "path": "assets/fonts/Merriweather-Bold.ttf",
+      "sha1": "4f84a0971ddd4aa17ee6d70c840dcca4980b947a"
+    },
+    {
+      "path": "assets/fonts/IBMPlexSerif-Regular.ttf",
+      "sha1": "06dba4f3ab31cc15e05acd4dcf05586d32084941"
+    },
+    {
+      "path": "assets/fonts/IBMPlexSerif-Medium.ttf",
+      "sha1": "57597fdddc1f98a75534f981d2e318037ea585a1"
+    },
+    {
+      "path": "assets/fonts/IBMPlexSerif-SemiBold.ttf",
+      "sha1": "ab0b2cdabd66bbf84c5909087a48ab873c115dc9"
+    },
+    {
+      "path": "assets/fonts/IBMPlexSerif-Bold.ttf",
+      "sha1": "eed19206158fe3630d9340817390484e17045965"
+    },
+    {
+      "path": "assets/fonts/Inter-Regular.ttf",
+      "sha1": "5d9c731774749908580ae4541e51b9643eb48ef2"
+    },
+    {
+      "path": "assets/fonts/Inter-Medium.ttf",
+      "sha1": "7ef507bc67b40828638ae2933c1c423d6b6e3315"
+    },
+    {
+      "path": "assets/fonts/Inter-SemiBold.ttf",
+      "sha1": "195b826883549eccf34ffc7d807907caf6410cde"
+    },
+    {
+      "path": "assets/fonts/Inter-Bold.ttf",
+      "sha1": "aa3508c6bff72068d7a5ce7a419eb14f9f547326"
+    }
+  ]
+}

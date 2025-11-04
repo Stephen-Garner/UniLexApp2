@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "android": "react-native run-android",
-    "ios": "react-native run-ios",
+    "ios": "RCT_NO_LAUNCH_PACKAGER=1 react-native run-ios --no-packager",
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",

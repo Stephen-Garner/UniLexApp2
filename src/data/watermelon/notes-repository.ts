@@ -6,14 +6,19 @@ import type { NotesRepository } from '../../contracts/repositories';
 import { NoteModel } from './models/note';
 
 /** Serialises a native note for persistence. */
+const isoToEpoch = (value: string): number => new Date(value).getTime();
+
+const epochToIso = (value: number | string): string => new Date(Number(value)).toISOString();
+
 const serializeNote = (note: NativeNote) => ({
-  vocab_item_id: note.vocabItemId,
+  vocab_item_id: note.vocabItemId ?? null,
+  title: note.title,
   content: note.content,
   source_language: note.sourceLanguage,
-  created_at: note.createdAt,
-  updated_at: note.updatedAt,
+  created_at: isoToEpoch(note.createdAt),
+  updated_at: isoToEpoch(note.updatedAt),
   answer: note.answer ?? null,
-  answered_at: note.answeredAt ?? null,
+  answered_at: note.answeredAt ? isoToEpoch(note.answeredAt) : null,
   video_id: note.videoId ?? null,
   timestamp_seconds: note.timestampSeconds ?? null,
 });
@@ -24,13 +29,20 @@ const deserializeNote = (record: NoteModel): NativeNote => {
 
   return {
     id: record.id,
-    vocabItemId: getValue<string>('vocab_item_id'),
+    vocabItemId: getValue<string | null>('vocab_item_id') ?? undefined,
+    title: (() => {
+      const value = getValue<string | null>('title');
+      return value && value.length > 0 ? value : 'Untitled note';
+    })(),
     content: getValue<string>('content'),
     sourceLanguage: getValue<string>('source_language'),
-    createdAt: getValue<string>('created_at'),
-    updatedAt: getValue<string>('updated_at'),
+    createdAt: epochToIso(getValue<number>('created_at')),
+    updatedAt: epochToIso(getValue<number>('updated_at')),
     answer: getValue<string | null>('answer') ?? undefined,
-    answeredAt: getValue<string | null>('answered_at') ?? undefined,
+    answeredAt: (() => {
+      const value = getValue<number | null>('answered_at');
+      return value == null ? undefined : epochToIso(value);
+    })(),
     videoId: getValue<string | null>('video_id') ?? undefined,
     timestampSeconds: (() => {
       const value = getValue<number | null>('timestamp_seconds');
@@ -119,14 +131,27 @@ export class WatermelonNotesRepository implements NotesRepository {
       );
   }
 
-  async updateNoteContent(noteId: string, content: string): Promise<void> {
+  async updateNoteContent(noteId: string, payload: { title: string; content: string }): Promise<void> {
     const collection = getNotesCollection();
 
     await getBankDatabase().write(async () => {
       const record = await collection.find(noteId);
       await record.update(rec => {
-        rec._setRaw('content', content);
-        rec._setRaw('updated_at', new Date().toISOString());
+        rec._setRaw('title', payload.title);
+        rec._setRaw('content', payload.content);
+        rec._setRaw('updated_at', Date.now());
+      });
+    });
+  }
+
+  async updateNoteStatus(noteId: string, answeredAt: string | null): Promise<void> {
+    const collection = getNotesCollection();
+
+    await getBankDatabase().write(async () => {
+      const record = await collection.find(noteId);
+      await record.update(rec => {
+        rec._setRaw('answered_at', answeredAt ? isoToEpoch(answeredAt) : null);
+        rec._setRaw('updated_at', Date.now());
       });
     });
   }

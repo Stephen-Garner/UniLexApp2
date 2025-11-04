@@ -1,9 +1,9 @@
-import { PermissionsAndroid, Platform } from 'react-native';
-import RNFS from 'react-native-fs';
+import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
 import { nanoid } from 'nanoid/non-secure';
-import { createSound } from 'react-native-nitro-sound';
 import type { AudioRecorderService } from '../contracts/services';
 import { Buffer } from 'buffer';
+type CreateSoundFactory = typeof import('react-native-nitro-sound')['createSound'];
+type RnfsModule = typeof import('react-native-fs');
 
 interface RecordingSession {
   path: string;
@@ -12,22 +12,22 @@ interface RecordingSession {
 
 const AUDIO_FILENAME = (id: string) => `rec-${id}.m4a`;
 
-const ensureDirectoryExists = async (path: string) => {
-  const exists = await RNFS.exists(path);
+const ensureDirectoryExists = async (fs: RnfsModule, path: string) => {
+  const exists = await fs.exists(path);
   if (!exists) {
-    await RNFS.mkdir(path);
+    await fs.mkdir(path);
   }
 };
 
-const getRecordingDirectory = async (): Promise<string> => {
+const getRecordingDirectory = async (fs: RnfsModule): Promise<string> => {
   const basePath = Platform.select({
-    ios: RNFS.CachesDirectoryPath,
-    android: RNFS.CachesDirectoryPath,
-    default: RNFS.CachesDirectoryPath,
+    ios: fs.CachesDirectoryPath,
+    android: fs.CachesDirectoryPath,
+    default: fs.CachesDirectoryPath,
   });
 
   const directory = `${basePath}/unilex-recordings`;
-  await ensureDirectoryExists(directory);
+  await ensureDirectoryExists(fs, directory);
   return directory;
 };
 
@@ -36,18 +36,87 @@ const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
   return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
 };
 
+type NitroSoundInstance = ReturnType<CreateSoundFactory>;
+
+const resolveSoundFactory = (): CreateSoundFactory | undefined => {
+  try {
+    const module = require('react-native-nitro-sound');
+    return module.createSound as CreateSoundFactory;
+  } catch (error) {
+    if (__DEV__) {
+      console.warn(
+        'react-native-nitro-sound is unavailable; audio recording features will be disabled.',
+        error,
+      );
+    }
+    return undefined;
+  }
+};
+
+const instantiateSound = (factory: CreateSoundFactory | undefined): NitroSoundInstance | undefined => {
+  if (!factory) {
+    return undefined;
+  }
+
+  try {
+    return factory();
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('Failed to instantiate Nitro sound engine; falling back to no-op implementation.', error);
+    }
+    return undefined;
+  }
+};
+
+const soundFactory = resolveSoundFactory();
+let cachedFsModule: RnfsModule | null | undefined;
+let hasWarnedFsUnavailable = false;
+
+const isFsNativeModuleAvailable = () => NativeModules?.RNFSManager != null;
+
+const resolveFsModule = (): RnfsModule | undefined => {
+  if (cachedFsModule !== undefined) {
+    return cachedFsModule ?? undefined;
+  }
+
+  if (!isFsNativeModuleAvailable()) {
+    cachedFsModule = null;
+    if (__DEV__ && !hasWarnedFsUnavailable) {
+      console.warn('react-native-fs native module is unavailable; audio recording features will be disabled.');
+      hasWarnedFsUnavailable = true;
+    }
+    return undefined;
+  }
+
+  try {
+    cachedFsModule = require('react-native-fs') as RnfsModule;
+    return cachedFsModule;
+  } catch (error) {
+    cachedFsModule = null;
+    if (__DEV__ && !hasWarnedFsUnavailable) {
+      console.warn(
+        'Failed to load react-native-fs; audio recording features will be disabled.',
+        error,
+      );
+      hasWarnedFsUnavailable = true;
+    }
+    return undefined;
+  }
+};
+
 export class NitroAudioRecorderService implements AudioRecorderService {
-  private readonly sound = createSound();
+  constructor(
+    private readonly sound: NitroSoundInstance,
+    private readonly fs: RnfsModule,
+  ) {
+    this.sound.setSubscriptionDuration?.(0.1);
+  }
 
   private readonly sessions = new Map<string, RecordingSession>();
 
   private activeSessionId: string | null = null;
 
   private recordingState = false;
-
-  constructor() {
-    this.sound.setSubscriptionDuration(0.1);
-  }
 
   async startRecording(): Promise<string> {
     if (this.recordingState) {
@@ -56,7 +125,7 @@ export class NitroAudioRecorderService implements AudioRecorderService {
 
     await this.ensurePermission();
 
-    const directory = await getRecordingDirectory();
+    const directory = await getRecordingDirectory(this.fs);
     const sessionId = nanoid();
     const filePath = `${directory}/${AUDIO_FILENAME(sessionId)}`;
 
@@ -92,7 +161,7 @@ export class NitroAudioRecorderService implements AudioRecorderService {
       throw new Error('Recording session not found.');
     }
 
-    const base64 = await RNFS.readFile(session.path, 'base64');
+    const base64 = await this.fs.readFile(session.path, 'base64');
     return base64ToArrayBuffer(base64);
   }
 
@@ -119,7 +188,7 @@ export class NitroAudioRecorderService implements AudioRecorderService {
     if (!session) {
       return null;
     }
-    const exists = await RNFS.exists(session.path);
+    const exists = await this.fs.exists(session.path);
     return exists ? session.path : null;
   }
 
@@ -129,9 +198,9 @@ export class NitroAudioRecorderService implements AudioRecorderService {
       return;
     }
     try {
-      const exists = await RNFS.exists(session.path);
+      const exists = await this.fs.exists(session.path);
       if (exists) {
-        await RNFS.unlink(session.path);
+        await this.fs.unlink(session.path);
       }
     } catch (error) {
       console.warn('Failed to cleanup recording', error);
@@ -170,4 +239,44 @@ export class NitroAudioRecorderService implements AudioRecorderService {
   }
 }
 
-export const audioRecorderService = new NitroAudioRecorderService();
+class NoopAudioRecorderService implements AudioRecorderService {
+  private buildError(): Error {
+    return new Error('Audio recording is unavailable on this device.');
+  }
+
+  async startRecording(): Promise<string> {
+    throw this.buildError();
+  }
+
+  async stopRecording(_sessionId: string): Promise<ArrayBuffer> {
+    throw this.buildError();
+  }
+
+  async pauseRecording(_sessionId: string): Promise<void> {
+    // noop
+  }
+
+  async resumeRecording(_sessionId: string): Promise<void> {
+    // noop
+  }
+
+  async isRecording(_sessionId: string): Promise<boolean> {
+    return false;
+  }
+
+  async getRecordingUri(_sessionId: string): Promise<string | null> {
+    return null;
+  }
+
+  async cleanupRecording(_sessionId: string): Promise<void> {
+    // noop
+  }
+}
+
+const soundInstance = instantiateSound(soundFactory);
+
+const fsModule = resolveFsModule();
+
+export const audioRecorderService: AudioRecorderService = soundInstance && fsModule
+  ? new NitroAudioRecorderService(soundInstance, fsModule)
+  : new NoopAudioRecorderService();

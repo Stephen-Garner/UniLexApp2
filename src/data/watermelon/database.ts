@@ -4,6 +4,7 @@ import { BankItemModel } from './models/bank-item';
 import { NoteModel } from './models/note';
 import { VideoModel } from './models/video';
 import { vocabularyBankSchema } from './schema';
+import { vocabularyMigrations } from './migrations';
 
 let databaseInstance: Database | null = null;
 
@@ -13,8 +14,15 @@ export const getBankDatabase = (): Database => {
     return databaseInstance;
   }
 
-  const adapter = new SQLiteAdapter({
+  let adapter: SQLiteAdapter;
+
+  adapter = new SQLiteAdapter({
     schema: vocabularyBankSchema,
+    migrations: vocabularyMigrations,
+    onSetUpError: error => {
+      console.error('Failed to initialise WatermelonDB. Resetting local database.', error);
+      adapter.unsafeResetDatabase(() => {});
+    },
   });
 
   databaseInstance = new Database({

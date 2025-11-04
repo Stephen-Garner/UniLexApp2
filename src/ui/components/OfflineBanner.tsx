@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useOfflineStore } from '../../state/offline.store';
+import { fontFamilies } from '../theme/tokens';
 
 /** Displays a persistent banner when the application is offline. */
 export const OfflineBanner: React.FC = () => {
@@ -25,7 +26,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: '#ffffff',
-    fontWeight: '600',
+    fontFamily: fontFamilies.sans.semibold,
     textAlign: 'center',
   },
 });

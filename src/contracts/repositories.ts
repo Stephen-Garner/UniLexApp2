@@ -87,7 +87,10 @@ export interface NotesRepository {
    * @param noteId Identifier of the note that should be updated.
    * @param content Replacement note content supplied by the learner.
    */
-  updateNoteContent(noteId: string, content: string): Promise<void>;
+  updateNoteContent(noteId: string, payload: { title: string; content: string }): Promise<void>;
+
+  /** Updates the answered state metadata for a note. */
+  updateNoteStatus(noteId: string, answeredAt: string | null): Promise<void>;
 
   /**
    * Removes a note from the persistence layer.

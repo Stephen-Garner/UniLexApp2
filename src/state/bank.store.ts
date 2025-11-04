@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid/non-secure';
 import { create } from 'zustand';
 import type { SrsData, VocabItem } from '../contracts/models';
-import { bankRepository } from '../data/watermelon/bank-repository';
+import { bankRepository } from '../services/container';
 
 /** Represents a newly created vocabulary bank entry. */
 export interface CreateBankItemInput {
@@ -13,8 +13,10 @@ export interface CreateBankItemInput {
   reading?: string;
   /** Optional example sentences demonstrating the usage. */
   examples?: string[];
-  /** Tags used to categorise the item. */
+  /** Tags used to categorise the item. Mirrors folders for compatibility. */
   tags?: string[];
+  /** Folders used to organise the item. */
+  folders?: string[];
   /** Difficulty level assigned to the item. */
   level?: string;
   /** Optional spaced repetition metadata. */
@@ -43,19 +45,88 @@ interface BankState {
   getFilteredItems: () => VocabItem[];
   /** Applies SRS metadata updates to a specific bank item. */
   updateSrsData: (itemId: string, data: SrsData) => Promise<void>;
+  /** Replaces the tag list associated with a bank item. */
+  updateTags: (itemId: string, tags: string[]) => Promise<void>;
+  /** Replaces the folder list associated with a bank item. */
+  updateFolders: (itemId: string, folders: string[]) => Promise<void>;
 }
 
 const nowIso = () => new Date().toISOString();
 
+const normaliseList = (values?: string[]): string[] => {
+  if (!values || values.length === 0) {
+    return [];
+  }
+  const seen = new Set<string>();
+  return values
+    .map(value => value.trim())
+    .filter(value => value.length > 0)
+    .filter(value => {
+      const key = value.toLowerCase();
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+};
+
+const normaliseTerm = (value: string): string => value.trim().toLowerCase();
+
+const syncFolders = (item: VocabItem, override?: string[]): VocabItem => {
+  const combined = normaliseList(
+    override ?? [...(item.folders ?? []), ...(item.tags ?? [])],
+  );
+  return {
+    ...item,
+    folders: combined,
+    tags: combined,
+  };
+};
+
+const dedupeByTerm = (items: VocabItem[]) => {
+  const map = new Map<string, VocabItem>();
+  const duplicates: VocabItem[] = [];
+
+  items.forEach(item => {
+    const key = normaliseTerm(item.term);
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, item);
+      return;
+    }
+
+    const existingDate = new Date(existing.updatedAt).getTime();
+    const candidateDate = new Date(item.updatedAt).getTime();
+
+    if (candidateDate > existingDate) {
+      duplicates.push(existing);
+      map.set(key, item);
+    } else {
+      duplicates.push(item);
+    }
+  });
+
+  return {
+    unique: Array.from(map.values()),
+    duplicates,
+  };
+};
+
 const toVocabItem = (input: CreateBankItemInput): VocabItem => {
   const timestamp = nowIso();
+  const folders = normaliseList([
+    ...(input.folders ?? []),
+    ...(input.tags ?? []),
+  ]);
   return {
     id: nanoid(),
     term: input.term,
     reading: input.reading,
     meaning: input.meaning,
     examples: input.examples ?? [],
-    tags: input.tags ?? [],
+    tags: folders,
+    folders,
     level: input.level ?? 'N/A',
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -73,7 +144,15 @@ export const useBankStore = create<BankState>((set, get) => ({
 
     try {
       const collection = await bankRepository.listAllVocabItems();
-      set({ items: collection, isLoading: false });
+      const normalised = collection.map(entry => syncFolders(entry));
+      const { unique, duplicates } = dedupeByTerm(normalised);
+      set({ items: unique, isLoading: false });
+
+      if (duplicates.length > 0) {
+        Promise.allSettled(duplicates.map(item => bankRepository.deleteVocabItem(item.id))).catch(
+          () => undefined,
+        );
+      }
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to load bank items.',
@@ -83,6 +162,13 @@ export const useBankStore = create<BankState>((set, get) => ({
   },
   addBankItem: async input => {
     set({ isLoading: true, error: undefined });
+    const existing = get().items.find(
+      item => normaliseTerm(item.term) === normaliseTerm(input.term),
+    );
+    if (existing) {
+      set({ isLoading: false });
+      return existing;
+    }
     const item = toVocabItem(input);
 
     try {
@@ -125,7 +211,7 @@ export const useBankStore = create<BankState>((set, get) => ({
 
     return items
       .filter(item => {
-        const haystack = [item.term, item.meaning, item.reading, ...item.tags].join(' ');
+        const haystack = [item.term, item.meaning, item.reading, ...item.tags, ...item.folders].join(' ');
         return haystack.toLowerCase().includes(trimmed);
       })
       .sort((a, b) => a.term.localeCompare(b.term));
@@ -147,6 +233,35 @@ export const useBankStore = create<BankState>((set, get) => ({
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to update spaced repetition data.',
+      });
+      throw error;
+    }
+  },
+  updateTags: async (itemId, tags) => get().updateFolders(itemId, tags),
+  updateFolders: async (itemId, folders) => {
+    const target = get().items.find(item => item.id === itemId);
+    if (!target) {
+      set({ error: 'Vocabulary item not found.' });
+      throw new Error('Item not found');
+    }
+
+    const updated = syncFolders(
+      {
+        ...target,
+        updatedAt: nowIso(),
+      },
+      folders,
+    );
+
+    try {
+      await bankRepository.saveVocabItem(updated);
+      set({
+        items: get().items.map(item => (item.id === itemId ? updated : item)),
+        error: undefined,
+      });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to update folders.',
       });
       throw error;
     }

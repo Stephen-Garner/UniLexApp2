@@ -11,6 +11,11 @@ import {
 import { useSettingsStore } from '../../state/settings.store';
 import { youTubeService, aiTutorService } from '../../services/container';
 import { useOfflineStore } from '../../state/offline.store';
+import ScreenContainer from '../components/ScreenContainer';
+import { typography } from '../theme/tokens';
+import { useTheme } from '../theme/theme';
+import { useThemeStyles } from '../theme/useThemeStyles';
+import type { ThemeColors } from '../theme/theme';
 
 const SettingsScreen: React.FC = () => {
   const {
@@ -105,8 +110,12 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
+  const { colors } = useTheme();
+  const styles = useThemeStyles(createStyles);
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScreenContainer style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Settings</Text>
 
       <View style={styles.section}>
@@ -118,6 +127,7 @@ const SettingsScreen: React.FC = () => {
           autoCapitalize="none"
           onChangeText={setYoutubeDraft}
           placeholder="Enter YouTube API key"
+          placeholderTextColor={colors.textSecondary}
         />
         <TouchableOpacity style={styles.button} onPress={handleTestYoutubeKey}>
           <Text style={styles.buttonLabel}>Test YouTube Key</Text>
@@ -130,6 +140,7 @@ const SettingsScreen: React.FC = () => {
           autoCapitalize="none"
           onChangeText={setAiDraft}
           placeholder="Enter AI Tutor API key"
+          placeholderTextColor={colors.textSecondary}
         />
         <TouchableOpacity style={styles.button} onPress={handleTestAiKey}>
           <Text style={styles.buttonLabel}>Test AI Tutor Key</Text>
@@ -144,6 +155,7 @@ const SettingsScreen: React.FC = () => {
           value={goalDraft}
           keyboardType="numeric"
           onChangeText={setGoalDraft}
+          placeholderTextColor={colors.textSecondary}
         />
       </View>
 
@@ -189,107 +201,113 @@ const SettingsScreen: React.FC = () => {
         <Text style={styles.primaryButtonLabel}>Save Settings</Text>
       </TouchableOpacity>
     </ScrollView>
+  </ScreenContainer>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    gap: 24,
-    backgroundColor: '#ffffff',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  section: {
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  label: {
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#ffffff',
-  },
-  button: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  buttonLabel: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  primaryButton: {
-    backgroundColor: '#059669',
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  primaryButtonLabel: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  themeRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  themeChip: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  themeChipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
-  },
-  themeLabel: {
-    color: '#1f2937',
-    fontWeight: '600',
-  },
-  themeLabelActive: {
-    color: '#ffffff',
-  },
-  voiceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e7eb',
-  },
-  voiceRowActive: {
-    backgroundColor: '#dbeafe',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-  },
-  voiceName: {
-    color: '#111827',
-    flex: 1,
-  },
-  voiceActive: {
-    color: '#2563eb',
-    fontWeight: '600',
-  },
-  placeholder: {
-    color: '#6b7280',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    container: {
+      padding: 16,
+      gap: 24,
+      backgroundColor: colors.background,
+    },
+    title: {
+      ...typography.headline,
+      color: colors.textPrimary,
+    },
+    section: {
+      gap: 12,
+    },
+    sectionTitle: {
+      ...typography.title,
+      color: colors.textPrimary,
+    },
+    label: {
+      ...typography.captionStrong,
+      color: colors.textSecondary,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: colors.surface,
+      color: colors.textPrimary,
+    },
+    button: {
+      alignSelf: 'flex-start',
+      backgroundColor: colors.accent,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 8,
+    },
+    buttonLabel: {
+      ...typography.captionStrong,
+      color: colors.textOnAccent,
+    },
+    primaryButton: {
+      backgroundColor: colors.success,
+      paddingVertical: 14,
+      borderRadius: 10,
+      alignItems: 'center',
+    },
+    primaryButtonLabel: {
+      ...typography.bodyStrong,
+      color: colors.textOnAccent,
+    },
+    themeRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    themeChip: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 999,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: colors.surface,
+    },
+    themeChipActive: {
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
+    },
+    themeLabel: {
+      ...typography.captionStrong,
+      color: colors.textSecondary,
+    },
+    themeLabelActive: {
+      color: colors.textOnAccent,
+    },
+    voiceRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    voiceRowActive: {
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 8,
+      paddingHorizontal: 8,
+    },
+    voiceName: {
+      color: colors.textPrimary,
+      flex: 1,
+    },
+    voiceActive: {
+      ...typography.captionStrong,
+      color: colors.accent,
+    },
+    placeholder: {
+      color: colors.textSecondary,
+    },
+  });
 
 export default SettingsScreen;

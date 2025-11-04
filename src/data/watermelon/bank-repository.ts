@@ -5,34 +5,87 @@ import type { BankRepository } from '../../contracts/repositories';
 import type { VocabItem, SrsData } from '../../contracts/models';
 import { BankItemModel } from './models/bank-item';
 
+const normaliseList = (values?: string[]): string[] => {
+  if (!values || values.length === 0) {
+    return [];
+  }
+  const seen = new Set<string>();
+  return values
+    .map(value => value.trim())
+    .filter(value => value.length > 0)
+    .filter(value => {
+      const key = value.toLowerCase();
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+};
+
 /** Serialises a vocabulary item into WatermelonDB column values. */
-const serializeItem = (item: VocabItem) => ({
-  term: item.term,
-  reading: item.reading ?? null,
-  meaning: item.meaning,
-  examples: JSON.stringify(item.examples ?? []),
-  tags: JSON.stringify(item.tags ?? []),
-  level: item.level,
-  created_at: item.createdAt,
-  updated_at: item.updatedAt,
-  srs_data: item.srsData ? JSON.stringify(item.srsData) : null,
-});
+const isoToEpoch = (value: string): number => new Date(value).getTime();
+
+const epochToIso = (value: number | string): string => new Date(Number(value)).toISOString();
+
+const serializeItem = (item: VocabItem) => {
+  const folderList = normaliseList([...(item.folders ?? []), ...(item.tags ?? [])]);
+  return {
+    term: item.term,
+    reading: item.reading ?? null,
+    meaning: item.meaning,
+    examples: JSON.stringify(item.examples ?? []),
+    tags: JSON.stringify(folderList),
+    folders: JSON.stringify(folderList),
+    level: item.level,
+    created_at: isoToEpoch(item.createdAt),
+    updated_at: isoToEpoch(item.updatedAt),
+    srs_data: item.srsData ? JSON.stringify(item.srsData) : null,
+  };
+};
 
 /** Deserialises a WatermelonDB record into a vocabulary item structure. */
 const deserializeItem = (record: BankItemModel): VocabItem => {
   const getValue = <TValue = unknown>(key: string): TValue =>
     record.getRawValue<TValue>(key);
 
+  const rawExamples = getValue<string>('examples') ?? '[]';
+  const rawTags = getValue<string>('tags') ?? '[]';
+  const rawFolders = getValue<string>('folders') ?? '[]';
+  const folders = normaliseList([
+    ...((() => {
+      try {
+        return JSON.parse(rawFolders) as string[];
+      } catch {
+        return [];
+      }
+    })()),
+    ...((() => {
+      try {
+        return JSON.parse(rawTags) as string[];
+      } catch {
+        return [];
+      }
+    })()),
+  ]);
+
   return {
     id: record.id,
     term: getValue<string>('term'),
     reading: getValue<string | null>('reading') ?? undefined,
     meaning: getValue<string>('meaning'),
-    examples: JSON.parse(getValue<string>('examples') ?? '[]') as string[],
-    tags: JSON.parse(getValue<string>('tags') ?? '[]') as string[],
+    examples: (() => {
+      try {
+        return JSON.parse(rawExamples) as string[];
+      } catch {
+        return [];
+      }
+    })(),
+    tags: folders,
+    folders,
     level: getValue<string>('level'),
-    createdAt: getValue<string>('created_at'),
-    updatedAt: getValue<string>('updated_at'),
+    createdAt: epochToIso(getValue<number>('created_at')),
+    updatedAt: epochToIso(getValue<number>('updated_at')),
     srsData: (() => {
       const json = getValue<string | null>('srs_data');
       return json ? (JSON.parse(json) as SrsData) : undefined;
@@ -138,7 +191,7 @@ export class WatermelonBankRepository implements BankRepository {
       const record = await collection.find(itemId);
       await record.update(rec => {
         rec._setRaw('srs_data', JSON.stringify(data));
-        rec._setRaw('updated_at', new Date().toISOString());
+        rec._setRaw('updated_at', Date.now());
       });
     });
   }
