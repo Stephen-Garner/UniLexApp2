@@ -31,6 +31,7 @@ import ActivitiesScreen from './src/ui/screens/ActivitiesScreen';
 import NativeNotesScreen from './src/ui/screens/NativeNotesScreen';
 import ProgressDashboardScreen from './src/ui/screens/ProgressDashboardScreen';
 import WordDetailScreen from './src/ui/screens/WordDetailScreen';
+import FolderDetailScreen from './src/ui/screens/FolderDetailScreen';
 import NoteDetailScreen from './src/ui/screens/NoteDetailScreen';
 import CreateNoteScreen from './src/ui/screens/CreateNoteScreen';
 import SettingsScreen from './src/ui/screens/SettingsScreen';
@@ -210,6 +211,11 @@ function App() {
               name="WordDetail"
               component={WordDetailScreen}
               options={createDetailOptions('Word Detail')}
+            />
+            <RootStack.Screen
+              name="FolderDetail"
+              component={FolderDetailScreen}
+              options={{ headerShown: false }}
             />
         <RootStack.Screen
           name="NoteDetail"

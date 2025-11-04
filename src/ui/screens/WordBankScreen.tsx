@@ -224,6 +224,24 @@ const WordBankScreen: React.FC = () => {
     setIsWordSelectMode(false);
   }, []);
 
+  const handleOpenFolder = useCallback(
+    (folderName: string) => {
+      const normalised = normaliseFolderName(folderName);
+      setActiveFolder(normalised);
+      setExpandedWordId(null);
+      setIsWordSelectMode(false);
+      setSelectedWordIds([]);
+      navigation.navigate('FolderDetail', { folderName: normalised });
+    },
+    [
+      navigation,
+      setActiveFolder,
+      setExpandedWordId,
+      setIsWordSelectMode,
+      setSelectedWordIds,
+    ],
+  );
+
   useEffect(() => {
     if (!isWordSelectMode) {
       setSelectedWordIds([]);
@@ -264,7 +282,6 @@ const WordBankScreen: React.FC = () => {
       setIsFolderSelectMode(false);
       setSelectedFolders([]);
       setIsAddingFolder(false);
-      setActiveFolder(null);
     } else {
       setIsWordSelectMode(false);
       setSelectedWordIds([]);
@@ -311,7 +328,10 @@ const WordBankScreen: React.FC = () => {
   }, [folderOptions, items]);
 
   useEffect(() => {
-    if (activeFolder && !folderSummaries.some(summary => summary.name === activeFolder)) {
+    if (
+      activeFolder &&
+      !folderSummaries.some(summary => normaliseFolderName(summary.name) === activeFolder)
+    ) {
       setActiveFolder(null);
     }
   }, [activeFolder, folderSummaries]);
@@ -783,10 +803,10 @@ const WordBankScreen: React.FC = () => {
             </View>
           ) : (
             folderSummaries.map(summary => {
-              const isRenaming = folderBeingRenamed === summary.name;
               const normalisedName = normaliseFolderName(summary.name);
+              const isRenaming = folderBeingRenamed === summary.name;
               const isSelected = selectedFolders.includes(normalisedName);
-              const isActive = activeFolder === summary.name;
+              const isActive = activeFolder === normalisedName;
               const swipeEnabled = !isFolderSelectMode && !isRenaming;
               return (
                 <SwipeableRow
@@ -801,7 +821,7 @@ const WordBankScreen: React.FC = () => {
                         return;
                       }
                       if (!isRenaming) {
-                        setActiveFolder(prev => (prev === summary.name ? null : summary.name));
+                        handleOpenFolder(summary.name);
                       }
                     }}
                     style={[
