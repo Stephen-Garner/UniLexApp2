@@ -24,7 +24,7 @@ export type SrsData = z.infer<typeof SrsDataSchema>;
 /** Schema describing a vocabulary item available to learners. */
 export const VocabItemSchema = z.object({
   /** Unique identifier for the vocabulary item. */
-  id: z.string().uuid(),
+  id: z.string().min(1),
   /** Primary written form of the vocabulary item. */
   term: z.string().min(1),
   /** Pronunciation or reading for the vocabulary item. */
@@ -143,3 +143,234 @@ export const ProgressStatsSchema = z.object({
 
 /** Type describing aggregate progress statistics for a learner. */
 export type ProgressStats = z.infer<typeof ProgressStatsSchema>;
+
+/** Supported translation tutor difficulty tiers. */
+export const TranslationDifficultySchema = z.enum([
+  'intro',
+  'intermediate',
+  'advanced',
+  'expert',
+]);
+
+export type TranslationDifficulty = z.infer<typeof TranslationDifficultySchema>;
+
+/** Schema describing learner-specific preferences per target language. */
+export const LanguageProfileSchema = z.object({
+  /** Generated key scoped to (user, target language, region). */
+  profileId: z.string().min(1),
+  /** Underlying learner identifier. */
+  userId: z.string().min(1),
+  /** ISO code for the learner's native language (UI + instructions). */
+  nativeLanguage: z.string().min(2).max(8),
+  /** ISO code for the active study language. */
+  targetLanguage: z.string().min(2).max(8),
+  /** Optional dialect/region code (e.g., es-mx, pt-br). */
+  targetRegion: z.string().min(2).max(8).nullable().optional(),
+  /** Preferred difficulty tier for new sessions. */
+  preferredDifficulty: TranslationDifficultySchema,
+  /** Default stylistic mix to seed generation prompts. */
+  stylePreferences: z.object({
+    slang: z.number().min(0).max(1),
+    idioms: z.number().min(0).max(1),
+    formal: z.number().min(0).max(1),
+  }),
+  /** Locally saved translation session identifiers. */
+  savedSessions: z.array(z.string().min(1)),
+  /** Spaced repetition state scoped to this language profile. */
+  srsState: z.array(SrsDataSchema),
+  /** Aggregated learner mistakes for targeting future prompts. */
+  errorLedger: z.array(
+    z.object({
+      vocabId: z.string().min(1),
+      errorTags: z.array(z.string().min(1)),
+      count: z.number().int().nonnegative(),
+    }),
+  ),
+  /** Asset key for rendering the flag icon on the home screen. */
+  lastFlagAsset: z.string().min(1),
+  /** Timestamp for the most recent profile update. */
+  updatedAt: z.string().datetime(),
+});
+
+export type LanguageProfile = z.infer<typeof LanguageProfileSchema>;
+
+/** Narrow typing for translation tutor style tags. */
+export const TranslationStyleTagSchema = z.enum([
+  'formal',
+  'casual',
+  'slang',
+  'idiom',
+  'business',
+  'dialogue',
+  'narrative',
+]);
+
+export type TranslationStyleTag = z.infer<typeof TranslationStyleTagSchema>;
+
+/** Common root causes flagged during grading. */
+export const TranslationPitfallTypeSchema = z.enum([
+  'false_cognate',
+  'gender',
+  'aspect',
+  'register',
+  'agreement',
+  'word_order',
+  'politeness',
+]);
+
+export type TranslationPitfallType = z.infer<typeof TranslationPitfallTypeSchema>;
+
+/** Modes for mixing review vs. new vocabulary. */
+export const ReviewModeSchema = z.enum(['review_only', 'mixed', 'new_only']);
+export type ReviewMode = z.infer<typeof ReviewModeSchema>;
+
+/** Schema describing a single learner attempt within a translation item. */
+export const TtxItemHistorySchema = z.object({
+  attemptId: z.string().min(1),
+  answer: z.string(),
+  score: z.number().min(0).max(1),
+  feedback: z.string(),
+  errorTags: z.array(TranslationPitfallTypeSchema).default([]),
+  gradedAt: z.string().datetime(),
+});
+
+export type TtxItemHistory = z.infer<typeof TtxItemHistorySchema>;
+
+/** Schema describing the grading rubric and metadata for one prompt. */
+export const TtxItemSchema = z.object({
+  itemId: z.string().min(1),
+  nativeText: z.string().min(1),
+  context: z.string().max(280).optional(),
+  styleTags: z.array(TranslationStyleTagSchema).default([]),
+  expectedTranslations: z
+    .array(
+      z.object({
+        text: z.string().min(1),
+        register: z.string().min(1),
+        notes: z.string().min(1),
+      }),
+    )
+    .min(1),
+  focusVocabIds: z.array(z.string().min(1)),
+  commonPitfalls: z.array(
+    z.object({
+      type: TranslationPitfallTypeSchema,
+      explanation: z.string().min(1),
+    }),
+  ),
+  gradingRubric: z.object({
+    mustInclude: z.array(z.string().min(1)).default([]),
+    tolerate: z.array(z.string().min(1)).default([]),
+    reject: z.array(z.string().min(1)).default([]),
+  }),
+  insightHook: z.string().min(1),
+  history: z.array(TtxItemHistorySchema).default([]),
+  isFlagged: z.boolean().default(false),
+});
+
+export type TtxItem = z.infer<typeof TtxItemSchema>;
+
+/** Schema describing post-block analytics for a translation session. */
+export const TtxRecapSchema = z.object({
+  accuracy: z.number().min(0).max(1),
+  durationsSeconds: z.array(z.number().nonnegative()),
+  recommendedActions: z.array(z.string().min(1)).default([]),
+  srsQueue: z.array(
+    z.object({
+      vocabId: z.string().min(1),
+      dueAt: z.string().datetime(),
+    }),
+  ),
+});
+
+export type TtxRecap = z.infer<typeof TtxRecapSchema>;
+
+export const TtxSessionProgressSchema = z.object({
+  currentIndex: z.number().int().min(0),
+  isComplete: z.boolean(),
+  lastOpenedAt: z.string().datetime().optional(),
+});
+
+export type TtxSessionProgress = z.infer<typeof TtxSessionProgressSchema>;
+
+/** Schema describing a 10-question translation tutor batch. */
+export const TtxSessionSchema = z.object({
+  sessionId: z.string().min(1),
+  profileId: z.string().min(1),
+  nativeLanguage: z.string().min(2).max(8),
+  targetLanguage: z.string().min(2).max(8),
+  targetRegion: z.string().min(2).max(8).nullable().optional(),
+  difficulty: TranslationDifficultySchema,
+  styleMix: z.object({
+    formal: z.number().min(0).max(1),
+    slang: z.number().min(0).max(1),
+    idioms: z.number().min(0).max(1),
+  }),
+  reviewMode: ReviewModeSchema,
+  questionCount: z.number().int().min(5).max(25),
+  topicTags: z.array(z.string().min(1)).default([]),
+  vocabPool: z.array(VocabItemSchema),
+  createdAt: z.string().datetime(),
+  model: z.string().min(1),
+  items: z.array(TtxItemSchema).min(1),
+  recap: TtxRecapSchema.nullable().optional(),
+  progress: TtxSessionProgressSchema,
+});
+
+export type TtxSession = z.infer<typeof TtxSessionSchema>;
+
+/** Swipe outcomes for flashcard training. */
+export const FlashcardOutcomeSchema = z.enum(['correct', 'incorrect']);
+
+export const FlashcardHistorySchema = z.object({
+  attemptId: z.string().min(1),
+  outcome: FlashcardOutcomeSchema,
+  timestamp: z.string().datetime(),
+});
+
+export type FlashcardHistory = z.infer<typeof FlashcardHistorySchema>;
+
+export const FtxCardSchema = z.object({
+  cardId: z.string().min(1),
+  vocabId: z.string().min(1).nullable(),
+  term: z.string().min(1),
+  definition: z.string().min(1),
+  example: z.string().min(1).nullable().optional(),
+  isFlagged: z.boolean().default(false),
+  history: z.array(FlashcardHistorySchema).default([]),
+});
+
+export type FtxCard = z.infer<typeof FtxCardSchema>;
+
+export const FtxRecapSchema = z.object({
+  accuracy: z.number().min(0).max(1),
+  correctCount: z.number().int().nonnegative(),
+  incorrectCount: z.number().int().nonnegative(),
+  flaggedCardIds: z.array(z.string().min(1)).default([]),
+  srsQueue: z.array(
+    z.object({
+      vocabId: z.string().min(1),
+      dueAt: z.string().datetime(),
+    }),
+  ),
+});
+
+export type FtxRecap = z.infer<typeof FtxRecapSchema>;
+
+export const FtxSessionSchema = z.object({
+  sessionId: z.string().min(1),
+  profileId: z.string().min(1),
+  nativeLanguage: z.string().min(2).max(8),
+  targetLanguage: z.string().min(2).max(8),
+  targetRegion: z.string().min(2).max(8).nullable().optional(),
+  difficulty: TranslationDifficultySchema,
+  reviewMode: ReviewModeSchema,
+  questionCount: z.number().int().min(5).max(50),
+  topicTags: z.array(z.string().min(1)).default([]),
+  cards: z.array(FtxCardSchema).min(1),
+  createdAt: z.string().datetime(),
+  progress: TtxSessionProgressSchema,
+  recap: FtxRecapSchema.nullable().optional(),
+});
+
+export type FtxSession = z.infer<typeof FtxSessionSchema>;

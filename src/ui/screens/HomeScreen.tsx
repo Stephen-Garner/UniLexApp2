@@ -29,28 +29,81 @@ import { useBankStore } from '../../state/bank.store';
 import { spacing, radii, typography, shadows, fontFamilies } from '../theme/tokens';
 import { useTheme, type ThemeColors } from '../theme/theme';
 import { useThemeStyles } from '../theme/useThemeStyles';
+import LanguageFlagButton from '../components/LanguageFlagButton';
+import LanguageSwitcherModal from '../components/LanguageSwitcherModal';
+import { useLanguageProfileStore } from '../../state/language-profile.store';
+import { resolveFlagGlyph } from '../../data/language-library';
+import { DEFAULT_USER_ID } from '../../domain/user/constants';
 
 type HomeNavigation = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabsParamList, 'Home'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
 
+type ActivityDestination = 'Activities' | 'TranslationPractice';
+
 type ActivityTileConfig = {
   id: string;
   label: string;
   icon: ImageSourcePropType;
+  target: ActivityDestination;
 };
 
 const activityTiles: ActivityTileConfig[] = [
-  { id: 'translation', label: 'Translation Practice', icon: require('../../../assets/icons/translate-2.png') },
-  { id: 'flashcards', label: 'Flashcard Training', icon: require('../../../assets/icons/info-card-line.png') },
-  { id: 'writing', label: 'Writing Prompts', icon: require('../../../assets/icons/edit-2-line.png') },
-  { id: 'games', label: 'Language Games', icon: require('../../../assets/icons/gamepad-line.png') },
-  { id: 'pronunciation', label: 'Pronunciation Practice', icon: require('../../../assets/icons/speak-line.png') },
-  { id: 'comprehension', label: 'Comprehension Practice', icon: require('../../../assets/icons/headphone-line.png') },
-  { id: 'culture', label: 'Cultural Immersion Capsule', icon: require('../../../assets/icons/group-3-line.png') },
-  { id: 'speaking', label: 'Spontaneous Speaking', icon: require('../../../assets/icons/speak-ai-line.png') },
-  { id: 'adaptive', label: 'Adaptive Review', icon: require('../../../assets/icons/feedback-line.png') },
+  {
+    id: 'translation',
+    label: 'Translation Practice',
+    icon: require('../../../assets/icons/translate-2.png'),
+    target: 'TranslationPractice',
+  },
+  {
+    id: 'flashcards',
+    label: 'Flashcard Training',
+    icon: require('../../../assets/icons/info-card-line.png'),
+    target: 'Activities',
+  },
+  {
+    id: 'writing',
+    label: 'Writing Prompts',
+    icon: require('../../../assets/icons/edit-2-line.png'),
+    target: 'Activities',
+  },
+  {
+    id: 'games',
+    label: 'Language Games',
+    icon: require('../../../assets/icons/gamepad-line.png'),
+    target: 'Activities',
+  },
+  {
+    id: 'pronunciation',
+    label: 'Pronunciation Practice',
+    icon: require('../../../assets/icons/speak-line.png'),
+    target: 'Activities',
+  },
+  {
+    id: 'comprehension',
+    label: 'Comprehension Practice',
+    icon: require('../../../assets/icons/headphone-line.png'),
+    target: 'Activities',
+  },
+  {
+    id: 'culture',
+    label: 'Cultural Immersion Capsule',
+    icon: require('../../../assets/icons/group-3-line.png'),
+    target: 'Activities',
+  },
+  {
+    id: 'speaking',
+    label: 'Spontaneous Speaking',
+    icon: require('../../../assets/icons/speak-ai-line.png'),
+    target: 'Activities',
+  },
+  {
+    id: 'adaptive',
+    label: 'Adaptive Review',
+    icon: require('../../../assets/icons/feedback-line.png'),
+    target: 'Activities',
+  },
 ] as const;
 
 const ACTIVITY_ICON_BOX = 44;
@@ -75,10 +128,36 @@ const HomeScreen: React.FC = () => {
     loadBank,
   } = useBankStore();
 
+  const {
+    profiles,
+    activeProfileId,
+    isLoaded: profilesLoaded,
+    loadProfiles,
+    ensureProfile,
+  } = useLanguageProfileStore();
+
+  const [isSwitcherVisible, setIsSwitcherVisible] = useState(false);
+
   useEffect(() => {
+    loadProfiles().catch(() => undefined);
     loadProgress().catch(() => undefined);
     loadBank().catch(() => undefined);
-  }, [loadProgress, loadBank]);
+  }, [loadProfiles, loadProgress, loadBank]);
+
+  useEffect(() => {
+    if (!profilesLoaded) {
+      return;
+    }
+    if (Object.keys(profiles).length === 0) {
+      ensureProfile({
+        userId: DEFAULT_USER_ID,
+        nativeLanguage: 'en',
+        targetLanguage: 'es',
+        targetRegion: 'mx',
+        makeActive: true,
+      }).catch(() => undefined);
+    }
+  }, [profilesLoaded, profiles, ensureProfile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -195,11 +274,18 @@ const HomeScreen: React.FC = () => {
     });
   }
 
+  const activeProfile = activeProfileId ? profiles[activeProfileId] : undefined;
+  const activeFlag = useMemo(
+    () => resolveFlagGlyph(activeProfile?.targetLanguage, activeProfile?.targetRegion),
+    [activeProfile?.targetLanguage, activeProfile?.targetRegion],
+  );
+
   return (
     <ScreenContainer style={styles.screen}>
       <ScreenHeader
         title="UniLex"
         onProfilePress={() => navigation.navigate('Settings')}
+        leftAccessory={<LanguageFlagButton glyph={activeFlag} onPress={() => setIsSwitcherVisible(true)} />}
       />
 
       <ScrollView
@@ -274,7 +360,11 @@ const HomeScreen: React.FC = () => {
               key={tile.id}
               label={tile.label}
               icon={tile.icon}
-              onPress={() => navigation.navigate('Activities')}
+              onPress={() =>
+                tile.target === 'TranslationPractice'
+                  ? navigation.navigate('TranslationPractice')
+                  : navigation.navigate('Activities')
+              }
             />
           ))}
         </View>
@@ -302,6 +392,7 @@ const HomeScreen: React.FC = () => {
           </Animated.View>
         </Animated.View>
       ) : null}
+      <LanguageSwitcherModal visible={isSwitcherVisible} onClose={() => setIsSwitcherVisible(false)} />
     </ScreenContainer>
   );
 };

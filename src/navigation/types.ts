@@ -6,6 +6,7 @@ export type RootStackParamList = {
   NoteDetail: { noteId: string };
   CreateNote: { vocabItemId?: string; seedContent?: string; source?: string };
   Settings: undefined;
+  TranslationPractice: undefined;
 };
 
 export type MainTabsParamList = {

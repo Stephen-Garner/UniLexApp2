@@ -35,6 +35,7 @@ import FolderDetailScreen from './src/ui/screens/FolderDetailScreen';
 import NoteDetailScreen from './src/ui/screens/NoteDetailScreen';
 import CreateNoteScreen from './src/ui/screens/CreateNoteScreen';
 import SettingsScreen from './src/ui/screens/SettingsScreen';
+import TranslationPracticeScreen from './src/ui/screens/TranslationPracticeScreen';
 import { offlineController } from './src/services/container';
 import { setOfflineState } from './src/state/offline.store';
 import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
@@ -74,15 +75,20 @@ const tabIcons: Record<keyof MainTabsParamList, TabIconConfig> = {
 };
 
 const defaultTextStyle: TextStyle = { fontFamily: fontFamilies.sans.regular };
-Text.defaultProps = Text.defaultProps ?? {};
-Text.defaultProps.style = StyleSheet.compose(defaultTextStyle, Text.defaultProps.style);
+const textDefaults = Text as typeof Text & { defaultProps?: { style?: TextStyle } };
+textDefaults.defaultProps = textDefaults.defaultProps ?? {};
+textDefaults.defaultProps.style = StyleSheet.flatten([
+  defaultTextStyle,
+  textDefaults.defaultProps.style,
+]) as TextStyle;
 
 const defaultTextInputStyle: TextStyle = { fontFamily: fontFamilies.sans.regular };
-TextInput.defaultProps = TextInput.defaultProps ?? {};
-TextInput.defaultProps.style = StyleSheet.compose(
+const textInputDefaults = TextInput as typeof TextInput & { defaultProps?: { style?: TextStyle } };
+textInputDefaults.defaultProps = textInputDefaults.defaultProps ?? {};
+textInputDefaults.defaultProps.style = StyleSheet.flatten([
   defaultTextInputStyle,
-  TextInput.defaultProps.style,
-);
+  textInputDefaults.defaultProps.style,
+]) as TextStyle;
 
 const HeaderIconButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
   const { colors, mode } = useTheme();
@@ -234,6 +240,11 @@ function App() {
                 headerShown: true,
                 title: 'Profile & Settings',
               }}
+            />
+            <RootStack.Screen
+              name="TranslationPractice"
+              component={TranslationPracticeScreen}
+              options={{ headerShown: false }}
             />
           </RootStack.Navigator>
         </View>

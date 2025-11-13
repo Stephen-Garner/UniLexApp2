@@ -850,29 +850,29 @@ const ChatScreen: React.FC = () => {
             <Text style={styles.folderSubtitle}>
               Tap a folder to assign this word or create a new one below.
             </Text>
-            <View style={styles.folderChipRow}>
+            <View style={styles.folderPickerRow}>
               {folders.length === 0 ? (
-                <Text style={styles.folderEmptyLabel}>
+                <Text style={styles.folderPickerEmptyLabel}>
                   No folders yet. Create one to get started.
                 </Text>
               ) : (
                 folders.map(option => (
                   <Pressable
                     key={option}
-                  onPress={() => toggleFolderSelection(option)}
+                    onPress={() => toggleFolderSelection(option)}
                     style={[
-                      styles.folderChip,
+                      styles.folderPickerChip,
                       folderPicker.visible &&
                         folderPicker.selected.includes(option) &&
-                        styles.folderChipActive,
+                        styles.folderPickerChipActive,
                     ]}
                   >
                     <Text
                       style={[
-                        styles.folderChipLabel,
+                        styles.folderPickerChipLabel,
                         folderPicker.visible &&
                           folderPicker.selected.includes(option) &&
-                          styles.folderChipLabelActive,
+                          styles.folderPickerChipLabelActive,
                       ]}
                     >
                       {option}
@@ -1247,18 +1247,18 @@ const createStyles = (colors: ThemeColors) =>
       ...typography.caption,
       color: colors.textSecondary,
     },
-    folderChipRow: {
+    folderPickerRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 8,
     },
-    folderEmptyLabel: {
+    folderPickerEmptyLabel: {
       ...typography.caption,
       color: colors.textSecondary,
       flexShrink: 1,
       textAlign: 'center',
     },
-    folderChip: {
+    folderPickerChip: {
       borderRadius: radii.control,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
@@ -1266,15 +1266,15 @@ const createStyles = (colors: ThemeColors) =>
       paddingVertical: 6,
       backgroundColor: colors.surface,
     },
-    folderChipActive: {
+    folderPickerChipActive: {
       backgroundColor: colors.accent,
       borderColor: colors.accent,
     },
-    folderChipLabel: {
+    folderPickerChipLabel: {
       ...typography.caption,
       color: colors.textSecondary,
     },
-    folderChipLabelActive: {
+    folderPickerChipLabelActive: {
       color: colors.textOnAccent,
       fontFamily: fontFamilies.sans.medium,
     },

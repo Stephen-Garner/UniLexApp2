@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -15,7 +16,7 @@ import ScreenHeader from '../components/ScreenHeader';
 import ScreenContainer from '../components/ScreenContainer';
 import { spacing, radii, typography, shadows, fontFamilies } from '../theme/tokens';
 import type { MainTabsParamList, RootStackParamList } from '../../navigation/types';
-import { type ThemeColors } from '../theme/theme';
+import { useTheme, type ThemeColors } from '../theme/theme';
 import { useThemeStyles } from '../theme/useThemeStyles';
 
 type ActivitiesNavigation = CompositeNavigationProp<
@@ -117,6 +118,7 @@ const activities = [
 const ActivitiesScreen: React.FC = () => {
   const navigation = useNavigation<ActivitiesNavigation>();
   const styles = useThemeStyles(createStyles);
+  const { mode } = useTheme();
   const [isSessionSheetOpen, setIsSessionSheetOpen] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState('10');
 
@@ -131,48 +133,52 @@ const ActivitiesScreen: React.FC = () => {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.sessionCard}>
-          <View style={styles.sessionHeader}>
-            <Text style={styles.sessionTitle}>Launch a session</Text>
-            <Text style={styles.sessionSubtitle}>
-              AI sequences activities using your memory graph.
-            </Text>
-          </View>
-          <Pressable
-            onPress={() => setIsSessionSheetOpen(true)}
-            style={({ pressed }) => [
-              styles.sessionButton,
-              pressed && styles.sessionButtonPressed,
-            ]}
-          >
-            <Text style={styles.sessionButtonLabel}>Choose length</Text>
-          </Pressable>
-          <Text style={styles.sessionSelected}>
-            Selected: {selectedDuration} minute plan
-          </Text>
-        </View>
-
-        {activities.map(activity => (
-          <View key={activity.id} style={styles.activityCard}>
-            <View style={styles.activityBadge} />
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>{activity.title}</Text>
-              {activity.bullets.map(point => (
-                <Text key={point} style={styles.activityBullet}>
-                  • {point}
+        {activities.map(activity => {
+          const isTranslation = activity.id === 'translation';
+          const handlePress = () => {
+            if (isTranslation) {
+              navigation.navigate('TranslationPractice');
+            }
+          };
+          return (
+            <View key={activity.id} style={styles.activityCard}>
+              {isTranslation ? (
+                <Image
+                  source={require('../../../assets/icons/translate-2.png')}
+                  style={[
+                    styles.activityIcon,
+                    mode === 'dark' && { tintColor: '#FFFFFF' },
+                  ]}
+                />
+              ) : (
+                <View style={styles.activityBadge} />
+              )}
+              <View style={styles.activityContent}>
+                <Text style={styles.activityTitle}>{activity.title}</Text>
+                {activity.bullets.map(point => (
+                  <Text key={point} style={styles.activityBullet}>
+                    • {point}
+                  </Text>
+                ))}
+              </View>
+              <Pressable
+                style={({ pressed }) => [
+                  isTranslation ? styles.activityPrimaryAction : styles.activityAction,
+                  pressed && styles.activityActionPressed,
+                ]}
+                onPress={handlePress}
+              >
+                <Text
+                  style={
+                    isTranslation ? styles.activityPrimaryActionLabel : styles.activityActionLabel
+                  }
+                >
+                  {isTranslation ? 'Begin activity' : 'Preview'}
                 </Text>
-              ))}
+              </Pressable>
             </View>
-            <Pressable
-              style={({ pressed }) => [
-                styles.activityAction,
-                pressed && styles.activityActionPressed,
-              ]}
-            >
-              <Text style={styles.activityActionLabel}>Preview</Text>
-            </Pressable>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
 
       <Modal
@@ -276,19 +282,27 @@ const createStyles = (colors: ThemeColors) =>
       borderRadius: radii.surface,
       backgroundColor: colors.surface,
       padding: 20,
-      gap: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
       ...shadows.card,
     },
     activityBadge: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       borderWidth: 2,
       borderColor: colors.accent,
     },
+    activityIcon: {
+      width: 44,
+      height: 44,
+      resizeMode: 'contain',
+    },
     activityContent: {
+      flex: 1,
       gap: 6,
     },
     activityTitle: {
@@ -310,12 +324,24 @@ const createStyles = (colors: ThemeColors) =>
       paddingVertical: 8,
       backgroundColor: colors.surface,
     },
+    activityPrimaryAction: {
+      alignSelf: 'flex-start',
+      borderRadius: radii.control,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      backgroundColor: colors.accent,
+    },
     activityActionPressed: {
       backgroundColor: colors.surfaceMuted,
     },
     activityActionLabel: {
       ...typography.captionStrong,
       color: colors.textPrimary,
+    },
+    activityPrimaryActionLabel: {
+      ...typography.captionStrong,
+      color: '#FFFFFF',
+      fontFamily: fontFamilies.sans.semibold,
     },
     sheetOverlay: {
       flex: 1,

@@ -2,8 +2,7 @@ import { create } from 'zustand';
 import { format, startOfDay, subDays, isSameDay } from 'date-fns';
 import type { DrillSession, ProgressStats, VocabItem } from '../contracts/models';
 import { bankRepository, progressRepository } from '../services/container';
-
-const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000000';
+import { DEFAULT_USER_ID } from '../domain/user/constants';
 
 interface WeeklyActivityPoint {
   label: string;
