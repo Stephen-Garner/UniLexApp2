@@ -45,9 +45,10 @@ import type {
 } from '../../contracts/models';
 import type { RootStackParamList } from '../../navigation/types';
 import { DEFAULT_USER_ID } from '../../domain/user/constants';
-import type { ActivityOutcome } from '../../domain/srs/unified-srs-service';
+import { calculateMasteryLevel, type ActivityOutcome } from '../../domain/srs/unified-srs-service';
 import { nanoid } from 'nanoid/non-secure';
 import { ttsService } from '../../services/container';
+import { useVocabActivityStore } from '../../state/vocab-activity.store';
 
 type FlashcardNavigation = NativeStackNavigationProp<RootStackParamList>;
 
@@ -101,6 +102,10 @@ const FlashcardTrainingScreen: React.FC = () => {
   const updateSrsData = useBankStore(state => state.updateSrsData);
   const updatePerformanceData = useBankStore(state => state.updatePerformanceData);
   const clearSrsData = useBankStore(state => state.clearSrsData);
+  const addBankItem = useBankStore(state => state.addBankItem);
+  const activityRecords = useVocabActivityStore(state => state.records);
+  const loadActivityRecords = useVocabActivityStore(state => state.loadRecords);
+  const appendActivityRecords = useVocabActivityStore(state => state.appendRecords);
 
   const [stylePreset, setStylePreset] = useState<StylePresetKey>('balanced');
   const [reviewMode, setReviewMode] = useState<ReviewMode>('mixed');
@@ -111,12 +116,25 @@ const FlashcardTrainingScreen: React.FC = () => {
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [modalSessionId, setModalSessionId] = useState<string | null>(null);
   const [resumePromptShown, setResumePromptShown] = useState(false);
+  const eligibleBankItems = useMemo(() => {
+    const MAX_ACTIVITIES_PER_WORD = 7;
+    return bankItems.filter(item => {
+      const mastery = calculateMasteryLevel(item);
+      if (mastery !== null && mastery >= 0.8) {
+        return false;
+      }
+      const historyCount =
+        activityRecords[item.id]?.filter(record => record.type === 'flashcard').length ?? 0;
+      return historyCount < MAX_ACTIVITIES_PER_WORD;
+    });
+  }, [bankItems, activityRecords]);
 
   useEffect(() => {
     loadProfiles().catch(() => undefined);
     loadSessions().catch(() => undefined);
     loadBank().catch(() => undefined);
-  }, [loadProfiles, loadSessions, loadBank]);
+    loadActivityRecords().catch(() => undefined);
+  }, [loadProfiles, loadSessions, loadBank, loadActivityRecords]);
 
   const activeProfile: LanguageProfile | undefined = activeProfileId
     ? profiles[activeProfileId]
@@ -201,7 +219,7 @@ const FlashcardTrainingScreen: React.FC = () => {
 
     const result = generateFlashcardSession({
       profile: activeProfile,
-      bankItems,
+      bankItems: eligibleBankItems,
       reviewMode,
       questionCount,
       topicTags,
@@ -214,8 +232,48 @@ const FlashcardTrainingScreen: React.FC = () => {
       return;
     }
 
-    await saveSession(result.session);
-    setModalSessionId(result.session.sessionId);
+    // Persist any synthetic/new vocab into the bank so SRS/metadata can update during play
+    const normalisedCards = await Promise.all(
+      result.session.cards.map(async card => {
+        if (card.vocabId) {
+          const exists =
+            bankItems.find(entry => entry.id === card.vocabId || entry.term === card.term) ?? null;
+          if (exists) {
+            return card;
+          }
+        }
+        const created = await addBankItem({
+          term: card.term,
+          meaning: card.definition,
+          reading: undefined,
+          examples: card.example ? [card.example] : [],
+          tags: topicTags,
+          folders: [],
+          level: activeProfile.preferredDifficulty,
+          srsData: undefined,
+        });
+        return {
+          ...card,
+          vocabId: created.id,
+          definition: created.meaning,
+          example: created.examples?.[0] ?? card.example ?? null,
+        };
+      }),
+    );
+
+    const sessionWithBankedCards = {
+      ...result.session,
+      cards: normalisedCards,
+    };
+
+    await saveSession(sessionWithBankedCards);
+    const vocabIdsForActivity = normalisedCards
+      .map(card => card.vocabId)
+      .filter((id): id is string => Boolean(id));
+    if (vocabIdsForActivity.length > 0) {
+      await appendActivityRecords(vocabIdsForActivity, sessionWithBankedCards.sessionId, 'flashcard');
+    }
+    setModalSessionId(sessionWithBankedCards.sessionId);
     setSessionModalVisible(true);
   };
 

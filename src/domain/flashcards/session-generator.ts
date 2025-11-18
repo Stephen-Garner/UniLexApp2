@@ -8,7 +8,6 @@ import type {
 } from '../../contracts/models';
 import { STYLE_PRESETS, type StylePresetKey } from '../translation/style-presets';
 import { buildVocabSelection } from '../vocab/selectors';
-
 export type FlashcardPresentationSide = 'term' | 'definition';
 
 export type GenerateFlashcardSessionResult =

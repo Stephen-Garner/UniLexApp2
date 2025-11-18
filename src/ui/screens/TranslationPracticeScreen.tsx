@@ -16,6 +16,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import ScreenContainer from '../components/ScreenContainer';
+import { nanoid } from 'nanoid/non-secure';
 import { spacing, radii, typography, fontFamilies } from '../theme/tokens';
 import { useTheme, type ThemeMode } from '../theme/theme';
 import LanguageSwitcherModal from '../components/LanguageSwitcherModal';
@@ -41,6 +42,8 @@ import type {
 import type { RootStackParamList } from '../../navigation/types';
 import { DEFAULT_USER_ID } from '../../domain/user/constants';
 import type { ActivityOutcome } from '../../domain/srs/unified-srs-service';
+import { calculateMasteryLevel } from '../../domain/srs/unified-srs-service';
+import { useVocabActivityStore } from '../../state/vocab-activity.store';
 
 const QUESTION_MIN = 5;
 const QUESTION_MAX = 25;
@@ -106,6 +109,10 @@ const TranslationPracticeScreen: React.FC = () => {
   const loadBank = useBankStore(state => state.loadBank);
   const bankLoading = useBankStore(state => state.isLoading);
   const recordActivityOutcome = useBankStore(state => state.recordActivityOutcome);
+  const addBankItem = useBankStore(state => state.addBankItem);
+  const activityRecords = useVocabActivityStore(state => state.records);
+  const loadActivityRecords = useVocabActivityStore(state => state.loadRecords);
+  const appendActivityRecords = useVocabActivityStore(state => state.appendRecords);
   const createNote = useNotesStore(state => state.createNote);
 
   const [stylePreset, setStylePreset] = useState<StylePresetKey>('balanced');
@@ -117,12 +124,25 @@ const TranslationPracticeScreen: React.FC = () => {
   const [modalSessionId, setModalSessionId] = useState<string | null>(null);
   const [resumePromptShown, setResumePromptShown] = useState(false);
   const reviewModeIndex = REVIEW_MODES.findIndex(option => option.value === reviewMode);
+  const eligibleBankItems = useMemo(() => {
+    const MAX_ACTIVITIES_PER_WORD = 7;
+    return bankItems.filter(item => {
+      const mastery = calculateMasteryLevel(item);
+      if (mastery !== null && mastery >= 0.8) {
+        return false;
+      }
+      const historyCount =
+        activityRecords[item.id]?.filter(record => record.type === 'translation').length ?? 0;
+      return historyCount < MAX_ACTIVITIES_PER_WORD;
+    });
+  }, [bankItems, activityRecords]);
 
   useEffect(() => {
     loadProfiles().catch(() => undefined);
     loadSessions().catch(() => undefined);
     loadBank().catch(() => undefined);
-  }, [loadProfiles, loadSessions, loadBank]);
+    loadActivityRecords().catch(() => undefined);
+  }, [loadProfiles, loadSessions, loadBank, loadActivityRecords]);
 
   const activeProfile = activeProfileId ? profiles[activeProfileId] : undefined;
   const activeLanguageLabel = useMemo(() => {
@@ -200,7 +220,7 @@ const TranslationPracticeScreen: React.FC = () => {
     const vocabPool = buildVocabPool({
       reviewMode,
       questionCount,
-      savedVocab: bankItems,
+      savedVocab: eligibleBankItems,
       targetLanguage: activeProfile.targetLanguage,
       difficulty: activeProfile.preferredDifficulty,
       topics: topicInput,
@@ -215,19 +235,70 @@ const TranslationPracticeScreen: React.FC = () => {
       return;
     }
 
+    const ensureUuid = (value?: string | null) => {
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (value && uuidRegex.test(value)) {
+        return value;
+      }
+      return globalThis.crypto?.randomUUID?.() ?? nanoid();
+    };
+
     const topicTags = topicInput
       .split(',')
       .map(tag => tag.trim())
       .filter(Boolean);
 
+    // Persist any synthetic/new vocab into the bank so they can accrue SRS/performance metadata
+    const normalisedPool = await Promise.all(
+      vocabPool.items.map(async item => {
+        const existing =
+          bankItems.find(entry => entry.id === item.id || entry.term === item.term) ?? null;
+        if (existing) {
+          return existing;
+        }
+        const created = await addBankItem({
+          term: item.term,
+          meaning: item.meaning,
+          reading: item.reading,
+          examples: item.examples,
+          tags: item.tags,
+          folders: item.folders,
+          level: item.level,
+          srsData: item.srsData,
+        });
+        return created;
+      }),
+    );
+
+    // Ensure any existing SRS metadata has a UUID id to satisfy session schema
+    const sanitizedPool = normalisedPool.map(item => {
+      if (!item.srsData) {
+        return item;
+      }
+      return {
+        ...item,
+        srsData: {
+          ...item.srsData,
+          id: ensureUuid(item.srsData.id),
+        },
+      };
+    });
+
     const session = generateMockTranslationSession({
       profile: activeProfile,
-      vocabPool: vocabPool.items,
+      vocabPool: sanitizedPool,
       styleMix: STYLE_PRESETS[stylePreset].values,
       topicTags,
       reviewMode,
       questionCount,
     });
+
+    await appendActivityRecords(
+      sanitizedPool.map(item => item.id),
+      session.sessionId,
+      'translation',
+    );
 
     await saveSession(session);
     await appendSavedSession(activeProfile.profileId, session.sessionId).catch(() => undefined);
@@ -477,13 +548,25 @@ const SessionPlayerModal: React.FC<SessionPlayerModalProps> = ({
     }
   }, [visible, session, slideAnim, chatOverlayAnim]);
 
-  if (!session) {
-    return null;
-  }
+  const item = session?.items[currentIndex];
+  const totalQuestions = session?.items.length ?? 0;
+  const remaining = Math.max(totalQuestions - currentIndex, 0);
+  const isFinalQuestion = session ? currentIndex === session.items.length - 1 : false;
+  const focusVocab = useMemo(() => {
+    if (!item || !item.focusVocabIds?.length) {
+      return null;
+    }
+    const firstId = item.focusVocabIds[0];
+    return bankItems.find(entry => entry.id === firstId) ?? null;
+  }, [item, bankItems]);
 
-  const item = session.items[currentIndex];
-  const remaining = session.items.length - currentIndex;
-  const isFinalQuestion = currentIndex === session.items.length - 1;
+  const highlightTerm = useMemo(() => {
+    if (!focusVocab) {
+      return null;
+    }
+    const baseMeaning = focusVocab.meaning?.split(/[.;]/)[0]?.trim();
+    return baseMeaning && baseMeaning.length > 0 ? baseMeaning : focusVocab.term;
+  }, [focusVocab]);
 
   const handleSubmit = async () => {
     if (!item || answer.trim().length === 0) {
@@ -682,10 +765,14 @@ const SessionPlayerModal: React.FC<SessionPlayerModalProps> = ({
                 onExit={closeModal}
               />
             </View>
+          ) : !item ? (
+            <View style={[styles.centerContent, { padding: spacing.block }]}>
+              <ActivityIndicator color={colors.accent} />
+            </View>
           ) : (
             <>
               <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
-                {session.questionCount - remaining + 1}/{session.questionCount}
+                {totalQuestions > 0 ? totalQuestions - remaining + 1 : 0}/{totalQuestions}
               </Text>
       <View style={styles.sliderViewport}>
                 <Animated.View
@@ -703,6 +790,7 @@ const SessionPlayerModal: React.FC<SessionPlayerModalProps> = ({
                       colors={colors}
                       mode={mode}
                       answer={answer}
+                      highlightTerm={highlightTerm}
                       onChangeAnswer={setAnswer}
                       disabled={isGrading}
                       onSubmit={handleSubmit}
@@ -801,6 +889,7 @@ type PromptCardProps = {
   colors: ReturnType<typeof useTheme>['colors'];
   mode: ThemeMode;
   answer: string;
+  highlightTerm?: string | null;
   onChangeAnswer: (value: string) => void;
   disabled: boolean;
   onSubmit: () => void;
@@ -812,31 +901,56 @@ const PromptCard: React.FC<PromptCardProps> = ({
   colors,
   mode,
   answer,
+  highlightTerm,
   onChangeAnswer,
   disabled,
   onSubmit,
   styles,
-}) => (
-  <View style={[styles.promptCard, { backgroundColor: colors.background }]}>
-    <Text style={[styles.promptText, { color: colors.textPrimary }]}>{item.nativeText}</Text>
-    {item.context ? (
-      <Text style={[styles.promptContext, { color: colors.textSecondary }]}>{item.context}</Text>
-    ) : null}
-    <TextInput
-      multiline
-      value={answer}
-      onChangeText={onChangeAnswer}
-      placeholder="Type your translation…"
-      placeholderTextColor={colors.textSecondary}
-      style={[
-        styles.answerField,
-        {
-          borderColor: colors.border,
-          color: colors.textPrimary,
-          backgroundColor: mode === 'dark' ? colors.surfaceMuted : colors.surface,
-        },
-      ]}
-    />
+}) => {
+  const renderHighlighted = (text: string, keyword?: string | null) => {
+    if (!keyword) {
+      return text;
+    }
+    const lower = text.toLowerCase();
+    const needle = keyword.toLowerCase();
+    const index = lower.indexOf(needle);
+    if (index < 0) {
+      return text;
+    }
+    return (
+      <Text style={[styles.promptText, { color: colors.textPrimary }]}>
+        {text.slice(0, index)}
+        <Text style={styles.promptHighlight}>{text.slice(index, index + keyword.length)}</Text>
+        {text.slice(index + keyword.length)}
+      </Text>
+    );
+  };
+
+  return (
+    <View style={[styles.promptCard, { backgroundColor: colors.background }]}>
+      {typeof item.nativeText === 'string' ? (
+        renderHighlighted(item.nativeText, highlightTerm)
+      ) : (
+        <Text style={[styles.promptText, { color: colors.textPrimary }]}>{item.nativeText}</Text>
+      )}
+      {item.context ? (
+        <Text style={[styles.promptContext, { color: colors.textSecondary }]}>{item.context}</Text>
+      ) : null}
+      <TextInput
+        multiline
+        value={answer}
+        onChangeText={onChangeAnswer}
+        placeholder="Type your translation…"
+        placeholderTextColor={colors.textSecondary}
+        style={[
+          styles.answerField,
+          {
+            borderColor: colors.border,
+            color: colors.textPrimary,
+            backgroundColor: mode === 'dark' ? colors.surfaceMuted : colors.surface,
+          },
+        ]}
+      />
       <Pressable
         onPress={onSubmit}
         disabled={disabled || answer.trim().length === 0}
@@ -850,10 +964,11 @@ const PromptCard: React.FC<PromptCardProps> = ({
           },
         ]}
       >
-      <Text style={styles.primaryButtonLabel}>{disabled ? 'Scoring…' : 'Submit translation'}</Text>
-    </Pressable>
-  </View>
-);
+        <Text style={styles.primaryButtonLabel}>{disabled ? 'Scoring…' : 'Submit translation'}</Text>
+      </Pressable>
+    </View>
+  );
+};
 
 type AnalysisCardProps = {
   analysis: AnalysisState | null;
@@ -1572,6 +1687,12 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     promptText: {
       ...typography.body,
       fontFamily: fontFamilies.serif.semibold,
+    },
+    promptHighlight: {
+      ...typography.body,
+      fontFamily: fontFamilies.serif.semibold,
+      fontWeight: '700',
+      color: '#2B7BFF',
     },
     promptContext: {
       ...typography.caption,
