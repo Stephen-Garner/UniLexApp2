@@ -116,6 +116,7 @@ const TranslationPracticeScreen: React.FC = () => {
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [modalSessionId, setModalSessionId] = useState<string | null>(null);
   const [resumePromptShown, setResumePromptShown] = useState(false);
+  const reviewModeIndex = REVIEW_MODES.findIndex(option => option.value === reviewMode);
 
   useEffect(() => {
     loadProfiles().catch(() => undefined);
@@ -299,36 +300,21 @@ const TranslationPracticeScreen: React.FC = () => {
           />
 
           <Text style={styles.sectionLabel}>Vocabulary mix</Text>
-          <View style={styles.chipRow}>
-            {REVIEW_MODES.map(option => {
-              const isSelected = reviewMode === option.value;
-              return (
-                <Pressable
-                  key={option.value}
-                  onPress={() => setReviewMode(option.value)}
-                  style={[
-                    styles.chip,
-                    {
-                      borderColor: isSelected ? colors.accent : colors.border,
-                      backgroundColor: isSelected ? colors.accentSoft : colors.surface,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chipLabel,
-                      { color: isSelected ? colors.accent : colors.textPrimary },
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                  <Text style={[styles.chipSubtext, { color: colors.textSecondary }]}>
-                    {option.description}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <DiscreteSlider
+            min={0}
+            max={REVIEW_MODES.length - 1}
+            step={1}
+            value={reviewModeIndex < 0 ? 1 : reviewModeIndex}
+            onChange={index => {
+              const resolved = REVIEW_MODES[index]?.value ?? 'mixed';
+              setReviewMode(resolved);
+            }}
+            markers={REVIEW_MODES.map((option, idx) => ({ value: idx, label: option.label }))}
+            styles={styles}
+          />
+          <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
+            {REVIEW_MODES[reviewModeIndex]?.description ?? 'Blend review with AI-curated picks.'}
+          </Text>
 
           <View style={styles.sliderHeaderRow}>
             <Text style={styles.sectionLabel}>Question count</Text>
