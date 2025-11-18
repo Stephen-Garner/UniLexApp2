@@ -98,6 +98,24 @@ export class ResilientBankRepository implements BankRepository {
     await this.fallback.updateSrsData(itemId, data).catch(() => undefined);
   }
 
+  async clearSrsData(itemId: string): Promise<void> {
+    if (this.useFallback) {
+      await this.fallback.clearSrsData(itemId);
+      return;
+    }
+
+    try {
+      await this.primary.clearSrsData(itemId);
+    } catch (error) {
+      console.warn('[ResilientBankRepository] Falling back to MMKV storage.', error);
+      this.useFallback = true;
+      await this.fallback.clearSrsData(itemId);
+      return;
+    }
+
+    await this.fallback.clearSrsData(itemId).catch(() => undefined);
+  }
+
   private async execute<T>(
     primaryOp: BankOperation<T>,
     fallbackOp: BankOperation<T>,

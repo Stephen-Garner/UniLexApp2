@@ -36,6 +36,7 @@ import NoteDetailScreen from './src/ui/screens/NoteDetailScreen';
 import CreateNoteScreen from './src/ui/screens/CreateNoteScreen';
 import SettingsScreen from './src/ui/screens/SettingsScreen';
 import TranslationPracticeScreen from './src/ui/screens/TranslationPracticeScreen';
+import FlashcardTrainingScreen from './src/ui/screens/FlashcardTrainingScreen';
 import { offlineController } from './src/services/container';
 import { setOfflineState } from './src/state/offline.store';
 import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
@@ -244,6 +245,11 @@ function App() {
             <RootStack.Screen
               name="TranslationPractice"
               component={TranslationPracticeScreen}
+              options={{ headerShown: false }}
+            />
+            <RootStack.Screen
+              name="FlashcardTraining"
+              component={FlashcardTrainingScreen}
               options={{ headerShown: false }}
             />
           </RootStack.Navigator>

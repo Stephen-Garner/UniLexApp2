@@ -7,6 +7,7 @@ export type RootStackParamList = {
   CreateNote: { vocabItemId?: string; seedContent?: string; source?: string };
   Settings: undefined;
   TranslationPractice: undefined;
+  FlashcardTraining: undefined;
 };
 
 export type MainTabsParamList = {

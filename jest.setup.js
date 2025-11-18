@@ -30,6 +30,8 @@ jest.mock('react-native-mmkv', () => {
       this.store.delete(key);
     }
 
+    remove = this.delete.bind(this);
+
     getAllKeys() {
       return Array.from(this.store.keys());
     }
@@ -39,7 +41,9 @@ jest.mock('react-native-mmkv', () => {
     }
   }
 
-  return { MMKV: MockMMKV };
+  const createMMKV = () => new MockMMKV();
+
+  return { MMKV: MockMMKV, createMMKV };
 });
 
 jest.mock('react-native-tts', () => {

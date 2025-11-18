@@ -99,6 +99,20 @@ export class MmkvBankRepository implements BankRepository {
     this.writeItems(items);
   }
 
+  async clearSrsData(itemId: string): Promise<void> {
+    const items = this.readItems();
+    const index = items.findIndex(item => item.id === itemId);
+    if (index === -1) {
+      return;
+    }
+    items[index] = {
+      ...items[index],
+      srsData: undefined,
+      updatedAt: new Date().toISOString(),
+    };
+    this.writeItems(items);
+  }
+
   async replaceAll(items: VocabItem[]): Promise<void> {
     const normalised = items.map(cloneItem);
     this.writeItems(normalised);

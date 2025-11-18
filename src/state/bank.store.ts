@@ -1,7 +1,8 @@
 import { nanoid } from 'nanoid/non-secure';
 import { create } from 'zustand';
-import type { SrsData, VocabItem } from '../contracts/models';
+import type { SrsData, VocabItem, PerformanceData } from '../contracts/models';
 import { bankRepository } from '../services/container';
+import { updateVocabSrs, type ActivityOutcome } from '../domain/srs/unified-srs-service';
 
 /** Represents a newly created vocabulary bank entry. */
 export interface CreateBankItemInput {
@@ -45,6 +46,15 @@ interface BankState {
   getFilteredItems: () => VocabItem[];
   /** Applies SRS metadata updates to a specific bank item. */
   updateSrsData: (itemId: string, data: SrsData) => Promise<void>;
+  /** Clears the SRS metadata for the specified bank item. */
+  clearSrsData: (itemId: string) => Promise<void>;
+  /** Updates performance data for a specific bank item. */
+  updatePerformanceData: (itemId: string, data: PerformanceData) => Promise<void>;
+  /**
+   * Updates both SRS and performance data based on an activity outcome.
+   * This is the recommended method for tracking learning progress.
+   */
+  recordActivityOutcome: (itemId: string, outcome: ActivityOutcome) => Promise<void>;
   /** Replaces the tag list associated with a bank item. */
   updateTags: (itemId: string, tags: string[]) => Promise<void>;
   /** Replaces the folder list associated with a bank item. */
@@ -229,10 +239,89 @@ export const useBankStore = create<BankState>((set, get) => ({
               }
             : item,
         ),
+        error: undefined,
       });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to update spaced repetition data.',
+      });
+      throw error;
+    }
+  },
+  clearSrsData: async itemId => {
+    try {
+      await bankRepository.clearSrsData(itemId);
+      set({
+        items: get().items.map(item =>
+          item.id === itemId
+            ? {
+                ...item,
+                srsData: undefined,
+                updatedAt: nowIso(),
+              }
+            : item,
+        ),
+        error: undefined,
+      });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to clear spaced repetition data.',
+      });
+      throw error;
+    }
+  },
+  updatePerformanceData: async (itemId, data) => {
+    const target = get().items.find(item => item.id === itemId);
+    if (!target) {
+      set({ error: 'Vocabulary item not found.' });
+      throw new Error('Item not found');
+    }
+
+    const updated: VocabItem = {
+      ...target,
+      performanceData: data,
+      updatedAt: nowIso(),
+    };
+
+    try {
+      await bankRepository.saveVocabItem(updated);
+      set({
+        items: get().items.map(item => (item.id === itemId ? updated : item)),
+        error: undefined,
+      });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to update performance data.',
+      });
+      throw error;
+    }
+  },
+  recordActivityOutcome: async (itemId, outcome) => {
+    const target = get().items.find(item => item.id === itemId);
+    if (!target) {
+      set({ error: 'Vocabulary item not found.' });
+      throw new Error('Item not found');
+    }
+
+    // Use unified SRS service to calculate updates
+    const { srsData, performanceData } = updateVocabSrs(target, outcome);
+
+    const updated: VocabItem = {
+      ...target,
+      srsData,
+      performanceData,
+      updatedAt: nowIso(),
+    };
+
+    try {
+      await bankRepository.saveVocabItem(updated);
+      set({
+        items: get().items.map(item => (item.id === itemId ? updated : item)),
+        error: undefined,
+      });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to record activity outcome.',
       });
       throw error;
     }

@@ -40,6 +40,7 @@ import type {
 } from '../../contracts/models';
 import type { RootStackParamList } from '../../navigation/types';
 import { DEFAULT_USER_ID } from '../../domain/user/constants';
+import type { ActivityOutcome } from '../../domain/srs/unified-srs-service';
 
 const QUESTION_MIN = 5;
 const QUESTION_MAX = 25;
@@ -104,6 +105,7 @@ const TranslationPracticeScreen: React.FC = () => {
   const bankItems = useBankStore(state => state.items);
   const loadBank = useBankStore(state => state.loadBank);
   const bankLoading = useBankStore(state => state.isLoading);
+  const recordActivityOutcome = useBankStore(state => state.recordActivityOutcome);
   const createNote = useNotesStore(state => state.createNote);
 
   const [stylePreset, setStylePreset] = useState<StylePresetKey>('balanced');
@@ -408,6 +410,7 @@ const TranslationPracticeScreen: React.FC = () => {
         toggleFlagged={toggleFlagged}
         createNote={createNote}
         bankItems={bankItems}
+        recordActivityOutcome={recordActivityOutcome}
         styles={styles}
         mode={mode}
         onRequestNewSession={handleNewSessionFromReview}
@@ -428,6 +431,7 @@ type SessionPlayerModalProps = {
   toggleFlagged: TranslationSessionState['toggleFlagged'];
   createNote: (input: CreateNoteInput) => Promise<NativeNote>;
   bankItems: VocabItem[];
+  recordActivityOutcome: (itemId: string, outcome: ActivityOutcome) => Promise<void>;
   styles: ReturnType<typeof createStyles>;
   mode: ThemeMode;
   onRequestNewSession: () => void;
@@ -445,6 +449,7 @@ const SessionPlayerModal: React.FC<SessionPlayerModalProps> = ({
   toggleFlagged,
   createNote,
   bankItems,
+  recordActivityOutcome,
   styles,
   mode,
   onRequestNewSession,
@@ -513,6 +518,25 @@ const SessionPlayerModal: React.FC<SessionPlayerModalProps> = ({
       itemId: item.itemId,
       entry: attempt,
     });
+
+    // Update SRS data for focused vocab items using production-weighted scoring
+    const attemptDate = new Date();
+    for (const vocabId of item.focusVocabIds) {
+      const vocab = bankItems.find(v => v.id === vocabId);
+      if (vocab) {
+        const activityOutcome: ActivityOutcome = {
+          activityType: 'production',
+          wasCorrect: evaluation.score >= 0.5, // Pass threshold for production
+          score: evaluation.score,
+          attemptedAt: attemptDate,
+        };
+        // Record outcome asynchronously without blocking UI
+        recordActivityOutcome(vocabId, activityOutcome).catch(error => {
+          console.warn('Failed to update SRS for vocab:', vocabId, error);
+        });
+      }
+    }
+
     durationsRef.current[currentIndex] = (Date.now() - attemptTimerRef.current) / 1000;
     scoresRef.current[currentIndex] = evaluation.score;
     setAnalysis({

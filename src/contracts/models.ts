@@ -21,6 +21,95 @@ export const SrsDataSchema = z.object({
 /** Type describing spaced repetition metadata for a study item. */
 export type SrsData = z.infer<typeof SrsDataSchema>;
 
+/** Schema describing performance tracking for recognition-based practice. */
+export const RecognitionPerformanceSchema = z.object({
+  /** Number of correct recognition attempts (e.g., flashcard correct swipes). */
+  correctCount: z.number().int().nonnegative().default(0),
+  /** Number of incorrect recognition attempts. */
+  incorrectCount: z.number().int().nonnegative().default(0),
+  /** Timestamp of the most recent recognition attempt. */
+  lastAttemptAt: z.string().datetime().nullable().default(null),
+});
+
+/** Type describing recognition performance tracking. */
+export type RecognitionPerformance = z.infer<typeof RecognitionPerformanceSchema>;
+
+/** Schema describing performance tracking for production-based practice. */
+export const ProductionPerformanceSchema = z.object({
+  /** Number of correct production attempts (e.g., successful translations). */
+  correctCount: z.number().int().nonnegative().default(0),
+  /** Number of incorrect production attempts. */
+  incorrectCount: z.number().int().nonnegative().default(0),
+  /** Timestamp of the most recent production attempt. */
+  lastAttemptAt: z.string().datetime().nullable().default(null),
+});
+
+/** Type describing production performance tracking. */
+export type ProductionPerformance = z.infer<typeof ProductionPerformanceSchema>;
+
+/** Schema describing combined performance data across activity types. */
+export const PerformanceDataSchema = z.object({
+  /** Recognition-based practice performance (e.g., flashcards). */
+  recognition: RecognitionPerformanceSchema.default({
+    correctCount: 0,
+    incorrectCount: 0,
+    lastAttemptAt: null,
+  }),
+  /** Production-based practice performance (e.g., translation). */
+  production: ProductionPerformanceSchema.default({
+    correctCount: 0,
+    incorrectCount: 0,
+    lastAttemptAt: null,
+  }),
+});
+
+/** Type describing combined performance data across activity types. */
+export type PerformanceData = z.infer<typeof PerformanceDataSchema>;
+
+/** Formality level for vocabulary items. */
+export const FormalityLevelSchema = z.enum([
+  'formal',
+  'neutral',
+  'informal',
+  'slang',
+  'vulgar',
+]);
+
+/** Type describing formality level. */
+export type FormalityLevel = z.infer<typeof FormalityLevelSchema>;
+
+/** Register classification for vocabulary items. */
+export const RegisterTypeSchema = z.enum([
+  'literary',
+  'standard',
+  'colloquial',
+  'vulgar',
+]);
+
+/** Type describing register classification. */
+export type RegisterType = z.infer<typeof RegisterTypeSchema>;
+
+/** Frequency classification for vocabulary items. */
+export const FrequencyLevelSchema = z.enum(['common', 'uncommon', 'rare']);
+
+/** Type describing frequency level. */
+export type FrequencyLevel = z.infer<typeof FrequencyLevelSchema>;
+
+/** Schema describing additional linguistic metadata for vocabulary items. */
+export const VocabMetadataSchema = z.object({
+  /** Formality level of the vocabulary item. */
+  formality: FormalityLevelSchema.optional(),
+  /** Register classification of the vocabulary item. */
+  register: RegisterTypeSchema.optional(),
+  /** Regional variant identifier (e.g., "mx", "es", "ar"). */
+  region: z.string().min(2).max(8).optional(),
+  /** Frequency classification of the vocabulary item. */
+  frequency: FrequencyLevelSchema.optional(),
+});
+
+/** Type describing additional linguistic metadata. */
+export type VocabMetadata = z.infer<typeof VocabMetadataSchema>;
+
 /** Schema describing a vocabulary item available to learners. */
 export const VocabItemSchema = z.object({
   /** Unique identifier for the vocabulary item. */
@@ -45,6 +134,10 @@ export const VocabItemSchema = z.object({
   updatedAt: z.string().datetime(),
   /** Spaced repetition scheduling information for the vocabulary item. */
   srsData: SrsDataSchema.optional(),
+  /** Performance tracking across recognition and production activities. */
+  performanceData: PerformanceDataSchema.optional(),
+  /** Additional linguistic metadata for the vocabulary item. */
+  metadata: VocabMetadataSchema.optional(),
 });
 
 /** Type describing a vocabulary item available to learners. */
@@ -322,6 +415,8 @@ export type TtxSession = z.infer<typeof TtxSessionSchema>;
 /** Swipe outcomes for flashcard training. */
 export const FlashcardOutcomeSchema = z.enum(['correct', 'incorrect']);
 
+export type FlashcardOutcome = z.infer<typeof FlashcardOutcomeSchema>;
+
 export const FlashcardHistorySchema = z.object({
   attemptId: z.string().min(1),
   outcome: FlashcardOutcomeSchema,
@@ -329,6 +424,10 @@ export const FlashcardHistorySchema = z.object({
 });
 
 export type FlashcardHistory = z.infer<typeof FlashcardHistorySchema>;
+
+export const FlashcardPresentationSideSchema = z.enum(['term', 'definition']);
+
+export type FlashcardPresentationSide = z.infer<typeof FlashcardPresentationSideSchema>;
 
 export const FtxCardSchema = z.object({
   cardId: z.string().min(1),
@@ -371,6 +470,7 @@ export const FtxSessionSchema = z.object({
   createdAt: z.string().datetime(),
   progress: TtxSessionProgressSchema,
   recap: FtxRecapSchema.nullable().optional(),
+  presentationSide: FlashcardPresentationSideSchema.default('term'),
 });
 
 export type FtxSession = z.infer<typeof FtxSessionSchema>;

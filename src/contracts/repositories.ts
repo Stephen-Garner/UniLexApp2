@@ -44,6 +44,12 @@ export interface BankRepository {
    * @param data Latest spaced repetition metadata to apply.
    */
   updateSrsData(itemId: string, data: SrsData): Promise<void>;
+
+  /**
+   * Removes any spaced repetition metadata associated with a vocabulary item.
+   * @param itemId Identifier of the vocabulary item being cleared.
+   */
+  clearSrsData(itemId: string): Promise<void>;
 }
 
 /** Contract describing persistence for learner-authored notes. */

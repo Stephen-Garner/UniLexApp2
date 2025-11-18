@@ -195,6 +195,18 @@ export class WatermelonBankRepository implements BankRepository {
       });
     });
   }
+
+  async clearSrsData(itemId: string): Promise<void> {
+    const collection = getBankCollection();
+
+    await getBankDatabase().write(async () => {
+      const record = await collection.find(itemId);
+      await record.update(rec => {
+        rec._setRaw('srs_data', null);
+        rec._setRaw('updated_at', Date.now());
+      });
+    });
+  }
 }
 
 export const bankRepository = new WatermelonBankRepository();

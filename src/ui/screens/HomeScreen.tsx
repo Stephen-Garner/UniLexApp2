@@ -40,7 +40,7 @@ type HomeNavigation = CompositeNavigationProp<
   NativeStackNavigationProp<RootStackParamList>
 >;
 
-type ActivityDestination = 'Activities' | 'TranslationPractice';
+type ActivityDestination = 'Activities' | 'TranslationPractice' | 'FlashcardTraining';
 
 type ActivityTileConfig = {
   id: string;
@@ -60,7 +60,7 @@ const activityTiles: ActivityTileConfig[] = [
     id: 'flashcards',
     label: 'Flashcard Training',
     icon: require('../../../assets/icons/info-card-line.png'),
-    target: 'Activities',
+    target: 'FlashcardTraining',
   },
   {
     id: 'writing',
@@ -363,7 +363,9 @@ const HomeScreen: React.FC = () => {
               onPress={() =>
                 tile.target === 'TranslationPractice'
                   ? navigation.navigate('TranslationPractice')
-                  : navigation.navigate('Activities')
+                  : tile.target === 'FlashcardTraining'
+                    ? navigation.navigate('FlashcardTraining')
+                    : navigation.navigate('Activities')
               }
             />
           ))}

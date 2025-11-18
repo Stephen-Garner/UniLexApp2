@@ -135,9 +135,16 @@ const ActivitiesScreen: React.FC = () => {
       >
         {activities.map(activity => {
           const isTranslation = activity.id === 'translation';
+          const isFlashcards = activity.id === 'flashcards';
+          const isPrimary = isTranslation || isFlashcards;
           const handlePress = () => {
             if (isTranslation) {
               navigation.navigate('TranslationPractice');
+              return;
+            }
+            if (isFlashcards) {
+              navigation.navigate('FlashcardTraining');
+              return;
             }
           };
           return (
@@ -163,17 +170,15 @@ const ActivitiesScreen: React.FC = () => {
               </View>
               <Pressable
                 style={({ pressed }) => [
-                  isTranslation ? styles.activityPrimaryAction : styles.activityAction,
+                  isPrimary ? styles.activityPrimaryAction : styles.activityAction,
                   pressed && styles.activityActionPressed,
                 ]}
                 onPress={handlePress}
               >
                 <Text
-                  style={
-                    isTranslation ? styles.activityPrimaryActionLabel : styles.activityActionLabel
-                  }
+                  style={isPrimary ? styles.activityPrimaryActionLabel : styles.activityActionLabel}
                 >
-                  {isTranslation ? 'Begin activity' : 'Preview'}
+                  {isPrimary ? 'Begin activity' : 'Preview'}
                 </Text>
               </Pressable>
             </View>
