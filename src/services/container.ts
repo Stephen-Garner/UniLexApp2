@@ -1,9 +1,9 @@
 import { CachedAiTutorService, EchoAiTutorBackend } from './ai-tutor-service';
 import { offlineController } from './offline-controller';
-import { bankRepository } from '../data/resilient/bank-repository';
-import { notesRepository } from '../data/resilient/notes-repository';
-import { videoRepository } from '../data/watermelon/video-repository';
-import { MmkvProgressRepository } from '../data/mmkv/progress-repository';
+import { bankRepository } from '@/data/repositories/bank-repository';
+import { notesRepository } from '@/data/repositories/notes-repository';
+import { videoRepository } from '@/data/repositories/video-repository';
+import { MmkvProgressRepository } from '@/data/repositories/progress-repository';
 import { storageService } from './storage-service';
 import { youTubeService } from './youtube-service';
 import { audioRecorderService } from './audio-recorder-service';

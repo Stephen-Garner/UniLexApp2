@@ -1,0 +1,313 @@
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSettingsStore } from '@/state/settings.store';
+import { youTubeService, aiTutorService } from '@/services/container';
+import { useOfflineStore } from '@/state/offline.store';
+import ScreenContainer from '@/shared/components/ScreenContainer';
+import { typography } from '@/shared/theme/tokens';
+import { useTheme } from '@/shared/theme/theme';
+import { useThemeStyles } from '@/shared/theme/useThemeStyles';
+import type { ThemeColors } from '@/shared/theme/theme';
+
+const SettingsScreen: React.FC = () => {
+  const {
+    dailyGoalMinutes,
+    theme,
+    preferredVoiceId,
+    voices,
+    loadSettings,
+    updateYoutubeApiKey,
+    updateAiTutorApiKey,
+    updateDailyGoalMinutes,
+    updateTheme,
+    updatePreferredVoice,
+    refreshVoices,
+  } = useSettingsStore();
+
+  const isOffline = useOfflineStore(state => state.isOffline);
+  const [youtubeDraft, setYoutubeDraft] = useState('');
+  const [aiDraft, setAiDraft] = useState('');
+  const [goalDraft, setGoalDraft] = useState(String(dailyGoalMinutes));
+
+  useEffect(() => {
+    const hydrate = async () => {
+      await loadSettings();
+      const state = useSettingsStore.getState();
+      setYoutubeDraft(state.youtubeApiKey);
+      setAiDraft(state.aiTutorApiKey);
+      setGoalDraft(String(state.dailyGoalMinutes));
+      await refreshVoices();
+    };
+
+    hydrate().catch(() => undefined);
+  }, [loadSettings, refreshVoices]);
+
+  const handleSave = async () => {
+    try {
+      await Promise.all([
+        updateYoutubeApiKey(youtubeDraft.trim()),
+        updateAiTutorApiKey(aiDraft.trim()),
+        updateDailyGoalMinutes(Math.max(5, Number(goalDraft) || dailyGoalMinutes)),
+      ]);
+      Alert.alert('Settings saved');
+    } catch (error) {
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : 'Unable to save settings.',
+      );
+    }
+  };
+
+  const handleTestYoutubeKey = async () => {
+    if (isOffline) {
+      Alert.alert('Offline', 'Connect to the internet to test the YouTube key.');
+      return;
+    }
+
+    try {
+      await updateYoutubeApiKey(youtubeDraft.trim());
+      await youTubeService.searchVideos({ query: 'language learning', limit: 1 });
+      Alert.alert('Success', 'YouTube API key appears to be valid.');
+    } catch (error) {
+      Alert.alert(
+        'Test failed',
+        error instanceof Error ? error.message : 'Unable to verify YouTube key.',
+      );
+    }
+  };
+
+  const handleTestAiKey = async () => {
+    try {
+      await updateAiTutorApiKey(aiDraft.trim());
+      await aiTutorService.translate({
+        text: 'test',
+        sourceLanguage: 'en',
+        targetLanguage: 'ja',
+      });
+      Alert.alert('Success', 'AI tutor key saved.');
+    } catch (error) {
+      Alert.alert(
+        'Test failed',
+        error instanceof Error ? error.message : 'Unable to verify AI tutor key.',
+      );
+    }
+  };
+
+  const handleRefreshVoices = async () => {
+    try {
+      await refreshVoices();
+      Alert.alert('Voices updated');
+    } catch (error) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Unable to refresh voices.');
+    }
+  };
+
+  const { colors } = useTheme();
+  const styles = useThemeStyles(createStyles);
+
+  return (
+    <ScreenContainer style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Settings</Text>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>API Keys</Text>
+        <Text style={styles.label}>YouTube API key</Text>
+        <TextInput
+          style={styles.input}
+          value={youtubeDraft}
+          autoCapitalize="none"
+          onChangeText={setYoutubeDraft}
+          placeholder="Enter YouTube API key"
+          placeholderTextColor={colors.textSecondary}
+        />
+        <TouchableOpacity style={styles.button} onPress={handleTestYoutubeKey}>
+          <Text style={styles.buttonLabel}>Test YouTube Key</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.label}>AI Tutor API key</Text>
+        <TextInput
+          style={styles.input}
+          value={aiDraft}
+          autoCapitalize="none"
+          onChangeText={setAiDraft}
+          placeholder="Enter AI Tutor API key"
+          placeholderTextColor={colors.textSecondary}
+        />
+        <TouchableOpacity style={styles.button} onPress={handleTestAiKey}>
+          <Text style={styles.buttonLabel}>Test AI Tutor Key</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Goals</Text>
+        <Text style={styles.label}>Daily goal (minutes)</Text>
+        <TextInput
+          style={styles.input}
+          value={goalDraft}
+          keyboardType="numeric"
+          onChangeText={setGoalDraft}
+          placeholderTextColor={colors.textSecondary}
+        />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Appearance</Text>
+        <View style={styles.themeRow}>
+          {(['system', 'light', 'dark'] as const).map(option => (
+            <TouchableOpacity
+              key={option}
+              style={[styles.themeChip, theme === option && styles.themeChipActive]}
+              onPress={() => updateTheme(option)}
+            >
+              <Text style={[styles.themeLabel, theme === option && styles.themeLabelActive]}>
+                {option.toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Voices</Text>
+        <TouchableOpacity style={styles.button} onPress={handleRefreshVoices}>
+          <Text style={styles.buttonLabel}>Refresh Voices</Text>
+        </TouchableOpacity>
+        {voices.length === 0 ? (
+          <Text style={styles.placeholder}>No voices available.</Text>
+        ) : (
+          voices.map(voice => (
+            <TouchableOpacity
+              key={voice.id}
+              style={[styles.voiceRow, preferredVoiceId === voice.id && styles.voiceRowActive]}
+              onPress={() => updatePreferredVoice(voice.id)}
+            >
+              <Text style={styles.voiceName}>{voice.name ?? voice.id}</Text>
+              {preferredVoiceId === voice.id ? <Text style={styles.voiceActive}>Selected</Text> : null}
+            </TouchableOpacity>
+          ))
+        )}
+      </View>
+
+      <TouchableOpacity style={styles.primaryButton} onPress={handleSave}>
+        <Text style={styles.primaryButtonLabel}>Save Settings</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  </ScreenContainer>
+  );
+};
+
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    container: {
+      padding: 16,
+      gap: 24,
+      backgroundColor: colors.background,
+    },
+    title: {
+      ...typography.headline,
+      color: colors.textPrimary,
+    },
+    section: {
+      gap: 12,
+    },
+    sectionTitle: {
+      ...typography.title,
+      color: colors.textPrimary,
+    },
+    label: {
+      ...typography.captionStrong,
+      color: colors.textSecondary,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: colors.surface,
+      color: colors.textPrimary,
+    },
+    button: {
+      alignSelf: 'flex-start',
+      backgroundColor: colors.accent,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 8,
+    },
+    buttonLabel: {
+      ...typography.captionStrong,
+      color: colors.textOnAccent,
+    },
+    primaryButton: {
+      backgroundColor: colors.success,
+      paddingVertical: 14,
+      borderRadius: 10,
+      alignItems: 'center',
+    },
+    primaryButtonLabel: {
+      ...typography.bodyStrong,
+      color: colors.textOnAccent,
+    },
+    themeRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    themeChip: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 999,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: colors.surface,
+    },
+    themeChipActive: {
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
+    },
+    themeLabel: {
+      ...typography.captionStrong,
+      color: colors.textSecondary,
+    },
+    themeLabelActive: {
+      color: colors.textOnAccent,
+    },
+    voiceRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    voiceRowActive: {
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 8,
+      paddingHorizontal: 8,
+    },
+    voiceName: {
+      color: colors.textPrimary,
+      flex: 1,
+    },
+    voiceActive: {
+      ...typography.captionStrong,
+      color: colors.accent,
+    },
+    placeholder: {
+      color: colors.textSecondary,
+    },
+  });
+
+export default SettingsScreen;

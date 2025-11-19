@@ -125,7 +125,7 @@ export class ResilientBankRepository implements BankRepository {
         const result = await primaryOp();
         this.useFallback = false;
         return result;
-      } catch (error) {
+      } catch {
         return fallbackOp();
       }
     }

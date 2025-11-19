@@ -191,7 +191,7 @@ export const useBankStore = create<BankState>((set, get) => ({
 
     try {
       await bankRepository.saveVocabItem(item);
-      const nextItems = [...get().items.filter(existing => existing.id !== item.id), item];
+      const nextItems = [...get().items.filter(entry => entry.id !== item.id), item];
       set({ items: nextItems, isLoading: false });
       return item;
     } catch (error) {
