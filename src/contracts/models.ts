@@ -105,6 +105,12 @@ export const VocabMetadataSchema = z.object({
   region: z.string().min(2).max(8).optional(),
   /** Frequency classification of the vocabulary item. */
   frequency: FrequencyLevelSchema.optional(),
+  /** Language profile identifier that owns this vocabulary item. */
+  profileId: z.string().min(1).optional(),
+  /** Source language code used when this entry was created. */
+  sourceLanguage: z.string().min(2).max(8).optional(),
+  /** Target language code used when this entry was created. */
+  targetLanguage: z.string().min(2).max(8).optional(),
 });
 
 /** Type describing additional linguistic metadata. */

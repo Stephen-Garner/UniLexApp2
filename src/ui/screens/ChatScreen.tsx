@@ -27,6 +27,11 @@ import { useMemoryStore } from '../../state/memory.store';
 import { useFolderStore } from '../../state/folder.store';
 import { useTheme, type ThemeColors } from '../theme/theme';
 import { useThemeStyles } from '../theme/useThemeStyles';
+import { useLanguageProfileStore } from '../../state/language-profile.store';
+import type { LanguageProfile } from '../../contracts/models';
+import LanguageFlagButton from '../components/LanguageFlagButton';
+import LanguageSwitcherModal from '../components/LanguageSwitcherModal';
+import { resolveFlagGlyph } from '../../data/language-library';
 
 type ChatNavigation = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabsParamList, 'Chat'>,
@@ -50,6 +55,9 @@ interface DictionaryMessage {
   translation: string;
   definitions: string[];
   examples: string[];
+  sourceLanguage: string;
+  targetLanguage: string;
+  inputLanguage: 'native' | 'target';
   bankItemId?: string;
   savedToNotes?: boolean;
   folders: string[];
@@ -69,6 +77,85 @@ const generateId = () => `chat-${Math.random().toString(36).slice(2, 10)}`;
 
 const normaliseTerm = (value: string): string => value.trim().toLowerCase();
 
+const hasNonAscii = (value: string) => /[^\u0000-\u007f]/.test(value);
+
+const containsSpanishMarkers = (value: string) =>
+  /[áéíóúüñ¿¡]/i.test(value);
+
+const guessInputLanguage = (
+  value: string,
+  profile?: LanguageProfile,
+): 'native' | 'target' => {
+  if (!profile) {
+    return 'native';
+  }
+
+  const trimmed = value.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (hasNonAscii(lower)) {
+    return 'target';
+  }
+
+  if (profile.targetLanguage === 'es' && containsSpanishMarkers(lower)) {
+    return 'target';
+  }
+  if (profile.nativeLanguage === 'es' && containsSpanishMarkers(lower)) {
+    return 'native';
+  }
+
+  const englishSignals = [' the ', ' and ', ' of ', ' to ', ' is ', ' in '];
+  if (
+    profile.nativeLanguage === 'en' &&
+    englishSignals.some(signal => lower.includes(signal))
+  ) {
+    return 'native';
+  }
+
+  // Default to assuming the learner is querying in their target language.
+  return 'target';
+};
+
+const resolveLanguageDirections = (
+  value: string,
+  profile?: LanguageProfile,
+): {
+  sourceLanguage: string;
+  targetLanguage: string;
+  inputLanguage: 'native' | 'target';
+} => {
+  if (!profile) {
+    return {
+      sourceLanguage: 'en',
+      targetLanguage: 'es',
+      inputLanguage: 'native',
+    };
+  }
+
+  const inputLanguage = guessInputLanguage(value, profile);
+  const sourceLanguage =
+    inputLanguage === 'target'
+      ? profile.targetLanguage
+      : profile.nativeLanguage;
+  const targetLanguage =
+    inputLanguage === 'target'
+      ? profile.nativeLanguage
+      : profile.targetLanguage;
+
+  return { sourceLanguage, targetLanguage, inputLanguage };
+};
+
+const buildTranslationContext = (profile?: LanguageProfile) => {
+  if (!profile) {
+    return undefined;
+  }
+  return [
+    `Native: ${profile.nativeLanguage}`,
+    `Target: ${profile.targetLanguage}${profile.targetRegion ? `-${profile.targetRegion}` : ''}`,
+    `Difficulty: ${profile.preferredDifficulty}`,
+  ].join(' | ');
+};
+
 const ChatScreen: React.FC = () => {
   const navigation = useNavigation<ChatNavigation>();
   const styles = useThemeStyles(createStyles);
@@ -77,7 +164,6 @@ const ChatScreen: React.FC = () => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [pendingBankIds, setPendingBankIds] = useState<Record<string, boolean>>({});
   const [pendingNoteIds, setPendingNoteIds] = useState<Record<string, boolean>>({});
   const [folderPicker, setFolderPicker] = useState<
@@ -86,6 +172,7 @@ const ChatScreen: React.FC = () => {
   >({ visible: false });
   const [newFolderName, setNewFolderName] = useState('');
   const [folderError, setFolderError] = useState<string | null>(null);
+  const [isSwitcherVisible, setIsSwitcherVisible] = useState(false);
 
   const isOffline = useOfflineStore(state => state.isOffline);
   const bankItems = useBankStore(state => state.items);
@@ -98,6 +185,12 @@ const ChatScreen: React.FC = () => {
   const folders = useFolderStore(state => state.folders);
   const loadFolders = useFolderStore(state => state.loadFolders);
   const addFolder = useFolderStore(state => state.addFolder);
+  const {
+    profiles,
+    activeProfileId,
+    loadProfiles,
+    isLoaded: profilesLoaded,
+  } = useLanguageProfileStore();
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
   const composerInputRef = useRef<TextInput>(null);
 
@@ -106,8 +199,39 @@ const ChatScreen: React.FC = () => {
   }, [loadBank]);
 
   useEffect(() => {
+    if (!profilesLoaded) {
+      loadProfiles().catch(() => undefined);
+    }
+  }, [profilesLoaded, loadProfiles]);
+
+  useEffect(() => {
     loadFolders().catch(() => undefined);
   }, [loadFolders]);
+
+  const activeProfile = useMemo(
+    () => (activeProfileId ? profiles[activeProfileId] : undefined),
+    [activeProfileId, profiles],
+  );
+
+  const translationContext = useMemo(
+    () => buildTranslationContext(activeProfile),
+    [activeProfile],
+  );
+
+  const activeFlag = useMemo(
+    () => resolveFlagGlyph(activeProfile?.targetLanguage, activeProfile?.targetRegion),
+    [activeProfile?.targetLanguage, activeProfile?.targetRegion],
+  );
+
+  const bankItemsForProfile = useMemo(() => {
+    if (!activeProfile) {
+      return bankItems;
+    }
+    return bankItems.filter(item => {
+      const owner = item.metadata?.profileId;
+      return !owner || owner === activeProfile.profileId;
+    });
+  }, [activeProfile, bankItems]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -122,7 +246,7 @@ const ChatScreen: React.FC = () => {
           return message;
         }
 
-        const existing = bankItems.find(
+        const existing = bankItemsForProfile.find(
           item => normaliseTerm(item.term) === normaliseTerm(message.headword),
         );
 
@@ -148,27 +272,19 @@ const ChatScreen: React.FC = () => {
         };
       }),
     );
-  }, [bankItems]);
-
-  const hamburgerButton = (
-    <Pressable
-      onPress={() => setIsMenuOpen(true)}
-      style={({ pressed }) => [
-        styles.hamburgerButton,
-        pressed && styles.hamburgerButtonPressed,
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel="Open quick shortcuts"
-    >
-      <View style={styles.hamburgerLine} />
-      <View style={styles.hamburgerLine} />
-      <View style={styles.hamburgerLine} />
-    </Pressable>
-  );
+  }, [bankItemsForProfile]);
 
   const handleSend = async () => {
     const trimmed = input.trim();
     if (!trimmed || isProcessing) {
+      return;
+    }
+
+    if (profilesLoaded && !activeProfile) {
+      Alert.alert(
+        'Select a language profile',
+        'Choose or create a profile on the Home tab to tailor the tutor and dictionary.',
+      );
       return;
     }
 
@@ -184,19 +300,28 @@ const ChatScreen: React.FC = () => {
     setIsProcessing(true);
 
     try {
+      const { sourceLanguage, targetLanguage, inputLanguage } = resolveLanguageDirections(
+        trimmed,
+        activeProfile,
+      );
+
       if (mode === 'dictionary') {
         const translation = await aiTutorService.translate({
           text: trimmed,
-          sourceLanguage: 'en',
-          targetLanguage: 'ja',
+          sourceLanguage,
+          targetLanguage,
+          context: translationContext,
         });
-        const definitions = [`Literal: ${translation}`, `Usage: ${trimmed} → ${translation}`];
+        const definitions = [
+          `Meaning in ${targetLanguage.toUpperCase()}: ${translation}`,
+          `Usage: ${trimmed} → ${translation}`,
+        ];
         const examples = [
-          `Ex. 1: ${trimmed} (en)`,
-          `Ex. 2: ${translation} (ja)`,
+          `Example (${sourceLanguage}): ${trimmed}`,
+          `Example (${targetLanguage}): ${translation}`,
         ];
 
-        const existing = bankItems.find(item =>
+        const existing = bankItemsForProfile.find(item =>
           item.term.toLowerCase() === trimmed.toLowerCase());
 
         const dictionaryMessage: DictionaryMessage = {
@@ -207,6 +332,9 @@ const ChatScreen: React.FC = () => {
           translation,
           definitions,
           examples,
+          sourceLanguage,
+          targetLanguage,
+          inputLanguage,
           bankItemId: existing?.id,
           folders: existing?.folders ?? [],
         };
@@ -293,6 +421,11 @@ const ChatScreen: React.FC = () => {
       examples: message.examples,
       folders: message.folders,
       level: 'A1',
+      metadata: {
+        profileId: activeProfile?.profileId,
+        sourceLanguage: message.sourceLanguage,
+        targetLanguage: message.targetLanguage,
+      },
     });
 
     let updatedMessage: DictionaryMessage | undefined;
@@ -514,6 +647,7 @@ const ChatScreen: React.FC = () => {
       prompt: recentUserPrompt?.content ?? 'Tutor reflection',
       response: message.content,
       summary: `Understood ${new Date().toLocaleTimeString()}`,
+      profileId: activeProfile?.profileId,
     });
 
     setMessages(prev =>
@@ -668,37 +802,6 @@ const ChatScreen: React.FC = () => {
     );
   };
 
-  const shortcutItems = useMemo(
-    () => [
-      {
-        id: 'translation',
-        label: 'Translation Practice',
-        action: () => navigation.navigate('Activities'),
-      },
-      {
-        id: 'flashcards',
-        label: 'Flashcards',
-        action: () => navigation.navigate('Activities'),
-      },
-      {
-        id: 'writing',
-        label: 'Writing Prompts',
-        action: () => navigation.navigate('Activities'),
-      },
-      {
-        id: 'games',
-        label: 'Games',
-        action: () => navigation.navigate('Activities'),
-      },
-      {
-        id: 'home',
-        label: 'Home',
-        action: () => navigation.navigate('Home'),
-      },
-    ],
-    [navigation],
-  );
-
   const canCreateFolder = newFolderName.trim().length > 0;
 
   useFocusEffect(
@@ -715,7 +818,12 @@ const ChatScreen: React.FC = () => {
       <ScreenHeader
         title="Dictionary + Tutor"
         onProfilePress={() => navigation.navigate('Settings')}
-        leftAccessory={hamburgerButton}
+        leftAccessory={
+          <LanguageFlagButton
+            glyph={activeFlag}
+            onPress={() => setIsSwitcherVisible(true)}
+          />
+        }
       />
 
       <KeyboardAvoidingView
@@ -805,34 +913,6 @@ const ChatScreen: React.FC = () => {
           </View>
         </View>
       </KeyboardAvoidingView>
-
-      <Modal
-        transparent
-        animationType="fade"
-        visible={isMenuOpen}
-        onRequestClose={() => setIsMenuOpen(false)}
-      >
-        <Pressable style={styles.menuOverlay} onPress={() => setIsMenuOpen(false)}>
-          <View style={styles.menuCard}>
-            <Text style={styles.menuTitle}>Quick Shortcuts</Text>
-            {shortcutItems.map(item => (
-              <Pressable
-                key={item.id}
-                onPress={() => {
-                  setIsMenuOpen(false);
-                  item.action();
-                }}
-                style={({ pressed }) => [
-                  styles.menuItem,
-                  pressed && styles.menuItemPressed,
-                ]}
-              >
-                <Text style={styles.menuItemLabel}>{item.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
 
       <Modal
         transparent
@@ -930,6 +1010,11 @@ const ChatScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      <LanguageSwitcherModal
+        visible={isSwitcherVisible}
+        onClose={() => setIsSwitcherVisible(false)}
+      />
     </ScreenContainer>
   );
 };
@@ -1170,60 +1255,6 @@ const createStyles = (colors: ThemeColors) =>
     sendLabel: {
       ...typography.captionStrong,
       color: colors.textOnAccent,
-    },
-    hamburgerButton: {
-      width: 36,
-      height: 36,
-      borderRadius: radii.control,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 4,
-      backgroundColor: colors.surface,
-    },
-    hamburgerButtonPressed: {
-      opacity: 0.85,
-    },
-    hamburgerLine: {
-      width: 18,
-      height: 2,
-      backgroundColor: colors.textPrimary,
-      borderRadius: 1,
-    },
-    menuOverlay: {
-      flex: 1,
-      backgroundColor: colors.overlay,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacing.screenHorizontal,
-    },
-    menuCard: {
-      width: '100%',
-      borderRadius: radii.surface,
-      backgroundColor: colors.surface,
-      padding: 24,
-      gap: 12,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-    },
-    menuTitle: {
-      ...typography.subhead,
-      color: colors.textPrimary,
-    },
-    menuItem: {
-      paddingVertical: 14,
-      borderRadius: radii.control,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      paddingHorizontal: 16,
-    },
-    menuItemPressed: {
-      backgroundColor: colors.surfaceMuted,
-    },
-    menuItemLabel: {
-      ...typography.body,
-      color: colors.textPrimary,
     },
     folderOverlay: {
       flex: 1,

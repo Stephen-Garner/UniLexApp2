@@ -1,6 +1,11 @@
 import { nanoid } from 'nanoid/non-secure';
 import { create } from 'zustand';
-import type { SrsData, VocabItem, PerformanceData } from '../contracts/models';
+import type {
+  SrsData,
+  VocabItem,
+  PerformanceData,
+  VocabMetadata,
+} from '../contracts/models';
 import { bankRepository } from '../services/container';
 import { updateVocabSrs, type ActivityOutcome } from '../domain/srs/unified-srs-service';
 
@@ -22,6 +27,8 @@ export interface CreateBankItemInput {
   level?: string;
   /** Optional spaced repetition metadata. */
   srsData?: VocabItem['srsData'];
+  /** Optional metadata describing the vocabulary context. */
+  metadata?: VocabMetadata;
 }
 
 /** Zustand store describing the vocabulary bank UI state. */
@@ -141,6 +148,7 @@ const toVocabItem = (input: CreateBankItemInput): VocabItem => {
     createdAt: timestamp,
     updatedAt: timestamp,
     srsData: input.srsData,
+    metadata: input.metadata,
   };
 };
 

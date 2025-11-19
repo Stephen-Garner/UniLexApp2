@@ -50,8 +50,8 @@ const QUESTION_MAX = 25;
 
 const REVIEW_MODES: Array<{ label: string; value: ReviewMode; description: string }> = [
   { label: 'Review only', value: 'review_only', description: 'Only saved vocab' },
-  { label: 'Mix it up', value: 'mixed', description: '50% review · 50% new' },
-  { label: 'New only', value: 'new_only', description: 'All AI-generated' },
+  { label: 'Mix 50/50', value: 'mixed', description: 'Half review · Half new' },
+  { label: 'New only', value: 'new_only', description: 'Newest bank words + AI' },
 ];
 
 const FORMALITY_OPTIONS: Array<{ key: StylePresetKey; label: string }> = [
@@ -383,8 +383,8 @@ const TranslationPracticeScreen: React.FC = () => {
             markers={REVIEW_MODES.map((option, idx) => ({ value: idx, label: option.label }))}
             styles={styles}
           />
-          <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-            {REVIEW_MODES[reviewModeIndex]?.description ?? 'Blend review with AI-curated picks.'}
+          <Text style={[styles.sliderDescription, { color: colors.textSecondary }]}>
+            {REVIEW_MODES[reviewModeIndex]?.description ?? 'Half review · Half new.'}
           </Text>
 
           <View style={styles.sliderHeaderRow}>
@@ -1538,13 +1538,12 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
       gap: spacing.base,
     },
     cardTitle: {
-      ...typography.subhead,
-      fontFamily: fontFamilies.sans.semibold,
+      ...typography.title,
+      fontFamily: fontFamilies.serif.semibold,
       color: colors.textPrimary,
     },
     cardSubtitle: {
       ...typography.body,
-      fontFamily: fontFamilies.sans.regular,
       color: colors.textSecondary,
     },
     chipRow: {
@@ -1570,9 +1569,8 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
       marginTop: 2,
     },
     sectionLabel: {
-      ...typography.captionStrong,
-      fontFamily: fontFamilies.sans.medium,
-      marginTop: spacing.base,
+      ...typography.subhead,
+      fontFamily: fontFamilies.sans.semibold,
       color: colors.textPrimary,
     },
     topicInput: {
@@ -1591,6 +1589,11 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     sliderValueLabel: {
       ...typography.caption,
       color: colors.textSecondary,
+    },
+    sliderDescription: {
+      ...typography.caption,
+      color: colors.textSecondary,
+      marginTop: spacing.base / 4,
     },
     primaryButton: {
       borderRadius: radii.surface,
@@ -1953,7 +1956,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
       color: colors.textSecondary,
     },
     configSliderMarkerActive: {
-      color: colors.accent,
+      color: colors.textPrimary,
       fontFamily: fontFamilies.sans.semibold,
     },
   });
