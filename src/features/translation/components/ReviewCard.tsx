@@ -39,9 +39,17 @@ type ReviewCardProps = {
   };
   onNewSession: () => void;
   onExit: () => void;
+  onSwitchActivity?: () => void;
 };
 
-const ReviewCard: React.FC<ReviewCardProps> = ({ summary, colors, styles, onNewSession, onExit }) => {
+const ReviewCard: React.FC<ReviewCardProps> = ({
+  summary,
+  colors,
+  styles,
+  onNewSession,
+  onExit,
+  onSwitchActivity,
+}) => {
   const formatPercent = (value: number) => `${Math.round(value * 100)}%`;
   const formatTime = (seconds: number) => `${Math.round(seconds)}s avg`;
 
@@ -98,6 +106,11 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ summary, colors, styles, onNewS
         >
           <Text style={styles.primaryButtonLabel}>Start new session</Text>
         </Pressable>
+        {onSwitchActivity ? (
+          <Pressable style={[styles.secondaryButton, styles.fullWidthButton]} onPress={onSwitchActivity}>
+            <Text style={styles.secondaryButtonLabel}>Switch activity</Text>
+          </Pressable>
+        ) : null}
         <Pressable style={[styles.secondaryButton, styles.fullWidthButton]} onPress={onExit}>
           <Text style={styles.secondaryButtonLabel}>Exit</Text>
         </Pressable>

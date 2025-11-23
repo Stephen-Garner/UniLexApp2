@@ -785,49 +785,61 @@ const FlashcardPlayerBody: React.FC<FlashcardPlayerBodyProps> = ({
 
   const recordSwipe = useCallback(
     async (direction: 'left' | 'right') => {
-      if (!card || isAnimatingRef.current) {
+      if (isAnimatingRef.current) {
         return;
       }
+
+      // Get current card based on currentIndexRef to avoid stale closure issues
+      const currentIdx = currentIndexRef.current;
+      const currentSession = useFlashcardSessionStore.getState().sessions[session.sessionId];
+      if (!currentSession) {
+        return;
+      }
+      const currentCard = currentSession.cards[currentIdx];
+      if (!currentCard) {
+        return;
+      }
+
       isAnimatingRef.current = true;
       try {
-        const previousProgress = currentIndexRef.current;
-        const previousCompletion = isComplete;
+        const previousProgress = currentIdx;
+        const previousCompletion = currentIdx >= currentSession.cards.length;
         const previousSrs =
-          card.vocabId && bankItems.length > 0
-            ? bankItems.find(item => item.id === card.vocabId)?.srsData ?? null
+          currentCard.vocabId && bankItems.length > 0
+            ? bankItems.find(item => item.id === currentCard.vocabId)?.srsData ?? null
             : null;
         const previousPerformance =
-          card.vocabId && bankItems.length > 0
-            ? bankItems.find(item => item.id === card.vocabId)?.performanceData ?? null
+          currentCard.vocabId && bankItems.length > 0
+            ? bankItems.find(item => item.id === currentCard.vocabId)?.performanceData ?? null
             : null;
         const outcome: FlashcardOutcome = direction === 'right' ? 'correct' : 'incorrect';
         const undoEntry: UndoEntry = {
-          cardId: card.cardId,
+          cardId: currentCard.cardId,
           previousProgress,
           previousCompletion,
-          vocabId: card.vocabId ?? null,
+          vocabId: currentCard.vocabId ?? null,
           previousSrs,
           previousPerformance,
         };
 
         await appendHistory({
           sessionId: session.sessionId,
-          cardId: card.cardId,
+          cardId: currentCard.cardId,
           outcome,
         });
-        await applySrsUpdate(card, outcome).catch(error => {
+        await applySrsUpdate(currentCard, outcome).catch(error => {
           console.warn('Failed to update SRS for flashcard', error);
         });
-        const nextProgressIndex = currentIndexRef.current + 1;
-        const isSessionComplete = nextProgressIndex >= session.cards.length;
+        const nextProgressIndex = currentIdx + 1;
+        const isSessionComplete = nextProgressIndex >= currentSession.cards.length;
         await setProgress(session.sessionId, {
-          currentIndex: isSessionComplete ? session.cards.length : nextProgressIndex,
+          currentIndex: isSessionComplete ? currentSession.cards.length : nextProgressIndex,
           isComplete: isSessionComplete,
           lastOpenedAt: new Date().toISOString(),
         });
 
         // Update local state to trigger completion screen or advance to next card
-        const newIndex = isSessionComplete ? session.cards.length : Math.min(nextProgressIndex, maxIndex);
+        const newIndex = isSessionComplete ? currentSession.cards.length : Math.min(nextProgressIndex, maxIndex);
         setCurrentIndex(newIndex);
         currentIndexRef.current = newIndex;
 
@@ -856,11 +868,8 @@ const FlashcardPlayerBody: React.FC<FlashcardPlayerBodyProps> = ({
       appendHistory,
       applySrsUpdate,
       bankItems,
-      card,
       finalizeSession,
-      isComplete,
       maxIndex,
-      session.cards.length,
       session.sessionId,
       setProgress,
       translateX,
@@ -929,6 +938,8 @@ const FlashcardPlayerBody: React.FC<FlashcardPlayerBodyProps> = ({
   const completedIncorrect = tallyIncorrect;
 
   const handleReviewMissed = async () => {
+    // Use the component's session.cards directly (same data source as displayed counts)
+    // to ensure consistency between what's shown and what's filtered
     const missedCards = cards.filter(candidate => {
       const lastEntry = candidate.history[candidate.history.length - 1];
       return lastEntry?.outcome === 'incorrect';

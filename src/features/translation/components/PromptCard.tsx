@@ -24,24 +24,44 @@ const PromptCard: React.FC<Props> = ({
   disabled,
   onSubmit,
   styles,
-}) => (
-  <View style={[styles.promptCard, { backgroundColor: colors.background }]}>
-    <Text style={[styles.promptLabel, { color: colors.textSecondary }]}>Prompt</Text>
-    <Text style={styles.promptText}>{item.nativeText}</Text>
-    {item.context ? (
-      <Text style={[styles.promptContext, { color: colors.textSecondary }]}>{item.context}</Text>
-    ) : null}
-    {highlightTerm ? <Text style={styles.highlightTerm}>{highlightTerm}</Text> : null}
-    <View style={styles.answerBox}>
+}) => {
+  const renderHighlighted = (text: string, keyword?: string | null) => {
+    if (!keyword) {
+      return text;
+    }
+    const lower = text.toLowerCase();
+    const needle = keyword.toLowerCase();
+    const index = lower.indexOf(needle);
+    if (index < 0) {
+      return text;
+    }
+    return (
+      <Text style={[styles.promptText, { color: colors.textPrimary }]}>
+        {text.slice(0, index)}
+        <Text style={styles.promptHighlight}>{text.slice(index, index + keyword.length)}</Text>
+        {text.slice(index + keyword.length)}
+      </Text>
+    );
+  };
+
+  return (
+    <View style={[styles.promptCard, { backgroundColor: colors.background }]}>
+      {typeof item.nativeText === 'string' ? (
+        renderHighlighted(item.nativeText, highlightTerm)
+      ) : (
+        <Text style={[styles.promptText, { color: colors.textPrimary }]}>{item.nativeText}</Text>
+      )}
+      {item.context ? (
+        <Text style={[styles.promptContext, { color: colors.textSecondary }]}>{item.context}</Text>
+      ) : null}
       <TextInput
+        multiline
         value={answer}
         onChangeText={onChangeAnswer}
-        placeholder="Compose your translation…"
+        placeholder="Type your translation…"
         placeholderTextColor={colors.textSecondary}
-        multiline
-        editable={!disabled}
         style={[
-          styles.answerInput,
+          styles.answerField,
           {
             borderColor: colors.border,
             color: colors.textPrimary,
@@ -49,21 +69,23 @@ const PromptCard: React.FC<Props> = ({
           },
         ]}
       />
-      <Text style={[styles.answerHint, { color: colors.textSecondary }]}>Keep it concise yet expressive.</Text>
+      <Pressable
+        onPress={onSubmit}
+        disabled={disabled || answer.trim().length === 0}
+        style={[
+          styles.primaryButton,
+          styles.fullWidthButton,
+          styles.buttonTopMargin,
+          {
+            backgroundColor:
+              disabled || answer.trim().length === 0 ? colors.surfaceMuted : colors.accent,
+          },
+        ]}
+      >
+        <Text style={styles.primaryButtonLabel}>{disabled ? 'Scoring…' : 'Submit translation'}</Text>
+      </Pressable>
     </View>
-    <Pressable
-      disabled={disabled}
-      style={[
-        styles.primaryButton,
-        styles.fullWidthButton,
-        disabled && styles.buttonDisabled,
-        { backgroundColor: disabled ? colors.surfaceMuted : colors.accent },
-      ]}
-      onPress={onSubmit}
-    >
-      <Text style={styles.primaryButtonLabel}>{disabled ? 'Scoring…' : 'Submit translation'}</Text>
-    </Pressable>
-  </View>
-);
+  );
+};
 
 export default PromptCard;

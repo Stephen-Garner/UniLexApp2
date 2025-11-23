@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -59,6 +59,7 @@ const SessionPlayerModal: React.FC<Props> = ({
   styles,
   mode,
   onRequestNewSession,
+  onSwitchActivity,
 }) => {
   const session = useTranslationSessionStore(state =>
     sessionId ? state.sessions[sessionId] : undefined,
@@ -76,6 +77,7 @@ const SessionPlayerModal: React.FC<Props> = ({
   const durationsRef = useRef<number[]>([]);
   const scoresRef = useRef<number[]>([]);
   const attemptTimerRef = useRef<number>(Date.now());
+  const resetMiniChat = miniChat.reset;
 
   useEffect(() => {
     if (visible && session) {
@@ -87,24 +89,35 @@ const SessionPlayerModal: React.FC<Props> = ({
       setAnswer('');
       setAnalysis(null);
       setReviewSummary(null);
-      miniChat.reset();
+      resetMiniChat();
       setIsMiniChatExpanded(false);
       chatOverlayAnim.setValue(0);
       slideAnim.setValue(0);
     }
-  }, [visible, session, slideAnim, chatOverlayAnim, miniChat]);
+  }, [visible, session, slideAnim, chatOverlayAnim, resetMiniChat]);
 
-  if (!session) {
-    return null;
-  }
-
-  const item = session.items[currentIndex];
-  const totalQuestions = session.items.length;
+  const hasSession = Boolean(session);
+  const item = session?.items?.[currentIndex];
+  const totalQuestions = session?.items?.length ?? 0;
   const remaining = Math.max(totalQuestions - currentIndex, 0);
-  const isFinalQuestion = currentIndex === session.items.length - 1;
+  const isFinalQuestion = session ? currentIndex === session.items.length - 1 : false;
+  const focusVocab = useMemo(() => {
+    if (!item || !item.focusVocabIds?.length) {
+      return null;
+    }
+    const firstId = item.focusVocabIds[0];
+    return bankItems.find(entry => entry.id === firstId) ?? null;
+  }, [item, bankItems]);
+  const highlightTerm = useMemo(() => {
+    if (!focusVocab) {
+      return null;
+    }
+    const baseMeaning = focusVocab.meaning?.split(/[.;]/)[0]?.trim();
+    return baseMeaning && baseMeaning.length > 0 ? baseMeaning : focusVocab.term;
+  }, [focusVocab]);
 
   const handleSubmit = async () => {
-    if (!item || answer.trim().length === 0) {
+    if (!session || !item || answer.trim().length === 0) {
       return;
     }
     setIsGrading(true);
@@ -176,6 +189,9 @@ const SessionPlayerModal: React.FC<Props> = ({
     }).start();
     setAnalysis(null);
     miniChat.reset();
+    if (!session) {
+      return;
+    }
     const nextIndex = Math.min(currentIndex + 1, session.items.length - 1);
     setCurrentIndex(nextIndex);
     const nextOpenedAt = new Date().toISOString();
@@ -193,8 +209,10 @@ const SessionPlayerModal: React.FC<Props> = ({
       return;
     }
     const nextFlag = !analysis.item.isFlagged;
-    await toggleFlagged(session.sessionId, analysis.item.itemId, nextFlag);
-    updatePrioritySrs(bankItems, analysis.item.focusVocabIds, nextFlag);
+    if (session) {
+      await toggleFlagged(session.sessionId, analysis.item.itemId, nextFlag);
+      updatePrioritySrs(bankItems, analysis.item.focusVocabIds, nextFlag);
+    }
     setAnalysis({
       ...analysis,
       item: {
@@ -215,6 +233,9 @@ const SessionPlayerModal: React.FC<Props> = ({
       `My answer: ${analysis.learnerAnswer}`,
       `Feedback: ${analysis.evaluation.feedback}`,
     ].join('\n\n');
+    if (!session) {
+      return;
+    }
     await createNote({
       title,
       content,
@@ -236,6 +257,9 @@ const SessionPlayerModal: React.FC<Props> = ({
   };
 
   const openMiniChatOverlay = () => {
+    if (!session) {
+      return;
+    }
     setIsMiniChatExpanded(true);
     Animated.timing(chatOverlayAnim, {
       toValue: 1,
@@ -271,7 +295,11 @@ const SessionPlayerModal: React.FC<Props> = ({
           <View style={styles.modalHeaderSpacer} />
         </View>
         <View style={styles.modalContent}>
-          {reviewSummary ? (
+          {!hasSession ? (
+            <View style={[styles.centerContent, { padding: spacing.block }]}>
+              <ActivityIndicator color={colors.accent} />
+            </View>
+          ) : reviewSummary ? (
             <View style={styles.reviewWrapper}>
               <ReviewCard
                 summary={reviewSummary}
@@ -279,6 +307,7 @@ const SessionPlayerModal: React.FC<Props> = ({
                 styles={styles}
                 onNewSession={onRequestNewSession}
                 onExit={dismiss}
+                onSwitchActivity={onSwitchActivity}
               />
             </View>
           ) : !item ? (
@@ -290,10 +319,10 @@ const SessionPlayerModal: React.FC<Props> = ({
               <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
                 {totalQuestions > 0 ? totalQuestions - remaining + 1 : 0}/{totalQuestions}
               </Text>
-              <View style={styles.promptCarousel}>
+              <View style={styles.sliderViewport}>
                 <Animated.View
                   style={[
-                    styles.promptRow,
+                    styles.sliderTrack,
                     {
                       width: contentWidth * 2,
                       transform: [{ translateX: slideAnim }],
@@ -306,7 +335,7 @@ const SessionPlayerModal: React.FC<Props> = ({
                       colors={colors}
                       mode={mode}
                       answer={answer}
-                      highlightTerm={null}
+                      highlightTerm={highlightTerm}
                       onChangeAnswer={setAnswer}
                       disabled={isGrading}
                       onSubmit={handleSubmit}
@@ -349,14 +378,16 @@ const SessionPlayerModal: React.FC<Props> = ({
               },
             ]}
             pointerEvents="auto"
+            accessibilityViewIsModal
           >
-            <View style={styles.chatOverlayInner}>
-              <View style={styles.chatOverlayTopRow}>
-                <Text style={styles.miniChatTitle}>Ask the tutor</Text>
-                <Pressable onPress={closeMiniChatOverlay} style={styles.chatOverlayClose}>
-                  <Text style={styles.chatOverlayCloseLabel}>Close</Text>
-                </Pressable>
-              </View>
+            <View style={styles.chatOverlayHeader}>
+              <Pressable onPress={closeMiniChatOverlay} style={styles.topBarButton}>
+                <Text style={styles.topBarClose}>×</Text>
+              </Pressable>
+              <Text style={styles.chatOverlayTitle}>Ask the tutor</Text>
+              <View style={styles.chatOverlayHeaderSpacer} />
+            </View>
+            <View style={styles.chatOverlayBody}>
               <ScrollView style={styles.chatOverlayMessages}>
                 {miniChat.messages.map(message => (
                   <View

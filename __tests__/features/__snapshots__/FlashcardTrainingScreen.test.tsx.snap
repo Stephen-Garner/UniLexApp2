@@ -1,0 +1,55 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`FlashcardTrainingScreen renders correctly 1`] = `
+<RNCSafeAreaView
+  edges={
+    {
+      "bottom": "off",
+      "left": "additive",
+      "right": "additive",
+      "top": "additive",
+    }
+  }
+  mode="padding"
+  style={
+    [
+      {
+        "flex": 1,
+      },
+      {
+        "backgroundColor": "#F7F3E3",
+      },
+      [
+        {
+          "flex": 1,
+        },
+        {
+          "alignItems": "center",
+          "justifyContent": "center",
+        },
+      ],
+    ]
+  }
+>
+  <ActivityIndicator
+    color="#2B9EB3"
+  />
+  <Text
+    style={
+      [
+        {
+          "fontFamily": "Inter-Regular",
+          "fontSize": 16,
+          "lineHeight": 22,
+          "marginTop": 4,
+        },
+        {
+          "color": "#5B6252",
+        },
+      ]
+    }
+  >
+    Loading profile…
+  </Text>
+</RNCSafeAreaView>
+`;
